@@ -32,6 +32,11 @@ export function getViewportRects(playerCount, cw, ch) {
   ];
 }
 
+export function getMapOverscroll(rect, viewSize = CAMERA_VIEW_SIZE) {
+  const aspect = Math.max(rect.w, rect.h) / Math.min(rect.w, rect.h);
+  return (viewSize * aspect) / 2;
+}
+
 export function getFollowCameraTransform(car, rect, dpr, viewSize = CAMERA_VIEW_SIZE) {
   const scale = Math.min(rect.w, rect.h) / viewSize;
   const centerX = rect.x + rect.w / 2;
@@ -48,7 +53,11 @@ export function getFollowCameraTransform(car, rect, dpr, viewSize = CAMERA_VIEW_
   ];
 }
 
-export function drawScene(ctx, trackImg, cars) {
+export function drawScene(ctx, trackImg, cars, padding = 0) {
+  const w = trackImg.naturalWidth;
+  const h = trackImg.naturalHeight;
+  ctx.fillStyle = '#438e34';
+  ctx.fillRect(-padding, -padding, w + padding * 2, h + padding * 2);
   ctx.drawImage(trackImg, 0, 0);
   for (const car of cars) {
     car.draw(ctx);
