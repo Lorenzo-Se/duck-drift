@@ -1,4 +1,10 @@
 import { Car } from './Car.js';
+import {
+  createRaceState,
+  drawCheckpoints,
+  drawRaceHud,
+  updateRaceState,
+} from './checkpoints.js';
 import { resolveCarCollisions } from './CarCollisions.js';
 import { TrackMask } from './TrackMask.js';
 import { drawQrCode } from './qrcode.js';
@@ -26,6 +32,10 @@ const startBtn = document.getElementById('start-btn');
 const mapSelectEl = document.getElementById('map-select');
 const roundsInputEl = document.getElementById('rounds-input');
 const lobbyConfigSummaryEl = document.getElementById('lobby-config-summary');
+const resultsOverlay = document.getElementById('results-overlay');
+const resultsWinnerEl = document.getElementById('results-winner');
+const resultsTableBody = document.getElementById('results-table-body');
+const resultsLobbyBtn = document.getElementById('results-lobby-btn');
 
 const SLOT_COLORS = ['#ff3333', '#3366ff', '#33cc33', '#ffcc00'];
 const SLOT_OFFSETS = [
@@ -48,6 +58,8 @@ let ws = null;
 let roomCode = null;
 const players = new Map();
 const pendingPlayers = new Map();
+const raceStates = new Map();
+let raceEnded = false;
 
 function getSelectedTrack() {
   return getTrackById(lobbyConfig.mapId);
@@ -151,20 +163,28 @@ function handleRoundsChange() {
   updateLobbyConfigSummary();
 }
 
-function getTrackCenter() {
-  return {
-    cx: trackImg.naturalWidth / 2,
-    cy: trackImg.naturalHeight / 2,
-  };
-}
-
 function getSpawnPosition(slot) {
-  const { cx, cy } = getTrackCenter();
+  const track = getSelectedTrack();
+  const checkpoints = track.checkpoints ?? [];
+  const start = checkpoints[0] ?? {
+    x: trackImg.naturalWidth / 2,
+    y: trackImg.naturalHeight / 2,
+  };
+
+  let angle = 0;
+  if (checkpoints.length > 1) {
+    const next = checkpoints[1];
+    angle = Math.atan2(next.y - start.y, next.x - start.x);
+  }
+
   const offset = SLOT_OFFSETS[slot] ?? SLOT_OFFSETS[0];
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
   return {
-    x: cx + offset.dx,
-    y: cy + offset.dy,
-    angle: offset.angle,
+    x: start.x + offset.dx * cos - offset.dy * sin,
+    y: start.y + offset.dx * sin + offset.dy * cos,
+    angle,
   };
 }
 
@@ -193,6 +213,152 @@ function resetPlayerCar(playerId) {
 function resetAllCars() {
   for (const playerId of players.keys()) {
     resetPlayerCar(playerId);
+  }
+}
+
+function initRaceStates() {
+  raceStates.clear();
+  raceEnded = false;
+  for (const playerId of players.keys()) {
+    raceStates.set(playerId, createRaceState());
+  }
+}
+
+function buildResults() {
+  const entries = [...players.entries()].map(([playerId, player]) => {
+    const state = raceStates.get(playerId) ?? createRaceState();
+    return {
+      playerId,
+      name: player.name,
+      lap: state.lap,
+      checkpointProgress: state.nextCheckpointIndex,
+      finished: state.finished,
+      finishTime: state.finishTime ?? Infinity,
+    };
+  });
+
+  entries.sort((a, b) => {
+    if (a.finished !== b.finished) {
+      return a.finished ? -1 : 1;
+    }
+    if (a.finished) {
+      return a.finishTime - b.finishTime;
+    }
+    if (a.lap !== b.lap) {
+      return b.lap - a.lap;
+    }
+    return b.checkpointProgress - a.checkpointProgress;
+  });
+
+  return entries.map((entry, index) => ({
+    playerId: entry.playerId,
+    name: entry.name,
+    lap: entry.lap,
+    position: index + 1,
+  }));
+}
+
+function showResultsOverlay(winnerName, results) {
+  resultsWinnerEl.textContent = `${winnerName} gewinnt!`;
+  resultsTableBody.innerHTML = '';
+
+  for (const result of results) {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>${result.position}</td>
+      <td>${result.name}</td>
+      <td>${result.lap}</td>
+    `;
+    resultsTableBody.appendChild(row);
+  }
+
+  resultsOverlay.classList.add('open');
+  resultsOverlay.setAttribute('aria-hidden', 'false');
+}
+
+function hideResultsOverlay() {
+  resultsOverlay.classList.remove('open');
+  resultsOverlay.setAttribute('aria-hidden', 'true');
+}
+
+function returnToLobby() {
+  hideResultsOverlay();
+  resetAllCars();
+  initRaceStates();
+  gamePhase = 'lobby';
+  setLobbySettingsEnabled(true);
+  lobbyPanel.classList.remove('hidden');
+  updateStartButtonState();
+  resizeCanvas();
+}
+
+async function recordWinnerHighscore(playerName) {
+  try {
+    const response = await fetch('/api/highscores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerName, won: true }),
+    });
+    if (!response.ok) {
+      console.error('Highscore POST failed:', response.status);
+    }
+  } catch (err) {
+    console.error('Highscore POST failed:', err);
+  }
+}
+
+function endRace(winnerId) {
+  if (raceEnded) {
+    return;
+  }
+  raceEnded = true;
+  gamePhase = 'finished';
+
+  const results = buildResults();
+  const winner = players.get(winnerId);
+  const winnerName = winner?.name ?? 'Unbekannt';
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'broadcast',
+      target: 'phones',
+      event: 'gameOver',
+      winnerId,
+      results,
+    }));
+  }
+
+  recordWinnerHighscore(winnerName);
+  showResultsOverlay(winnerName, results);
+}
+
+function updateRaceProgress() {
+  if (gamePhase !== 'playing' || raceEnded) {
+    return;
+  }
+
+  const track = getSelectedTrack();
+  const checkpoints = track.checkpoints ?? [];
+  const radius = track.checkpointRadius;
+
+  for (const [playerId, player] of players) {
+    const state = raceStates.get(playerId);
+    if (!state || state.finished) {
+      continue;
+    }
+
+    const justFinished = updateRaceState(
+      state,
+      player.car,
+      checkpoints,
+      radius,
+      lobbyConfig.totalRounds,
+    );
+
+    if (justFinished) {
+      endRace(playerId);
+      return;
+    }
   }
 }
 
@@ -262,9 +428,11 @@ function startGame() {
   }
 
   resetAllCars();
+  initRaceStates();
   gamePhase = 'playing';
   setLobbySettingsEnabled(false);
   lobbyPanel.classList.add('hidden');
+  hideResultsOverlay();
   resizeCanvas();
 }
 
@@ -391,7 +559,9 @@ function drawFrame() {
   }
 
   const { cw, ch } = getCanvasSize();
-  const activePlayers = [...players.values()].sort((a, b) => a.slot - b.slot);
+  const activePlayers = [...players.entries()]
+    .map(([playerId, player]) => ({ playerId, ...player }))
+    .sort((a, b) => a.slot - b.slot);
   const count = activePlayers.length;
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -402,11 +572,15 @@ function drawFrame() {
   }
 
   const rects = getViewportRects(count, cw, ch);
+  const track = getSelectedTrack();
+  const checkpoints = track.checkpoints ?? [];
+  const checkpointRadius = track.checkpointRadius;
 
   for (let i = 0; i < activePlayers.length; i++) {
     const player = activePlayers[i];
     const rect = rects[i];
     const { car } = player;
+    const raceState = raceStates.get(player.playerId);
 
     ctx.save();
     ctx.beginPath();
@@ -415,7 +589,14 @@ function drawFrame() {
     ctx.setTransform(...getFollowCameraTransform(car, rect, dpr, CAMERA_VIEW_SIZE));
     const padding = getMapGreenPadding(rect, CAMERA_VIEW_SIZE);
     drawScene(ctx, trackImg, cars, padding);
+    if (gamePhase === 'playing' || gamePhase === 'finished') {
+      drawCheckpoints(ctx, checkpoints, checkpointRadius, raceState?.nextCheckpointIndex ?? null);
+    }
     ctx.restore();
+
+    if (gamePhase === 'playing' && raceState) {
+      drawRaceHud(ctx, raceState.lap, lobbyConfig.totalRounds, rect, dpr);
+    }
   }
 
   if (count > 1) {
@@ -435,9 +616,10 @@ function loop(time) {
   const dt = Math.min((time - lastTime) / 1000, 0.05);
   lastTime = time;
 
-  if (trackReady && cars.length > 0) {
+  if (trackReady && cars.length > 0 && gamePhase === 'playing') {
     cars.forEach((car) => car.update(dt, trackMask));
     resolveCarCollisions(cars, trackMask);
+    updateRaceProgress();
   }
 
   drawFrame();
@@ -461,6 +643,7 @@ roundsInputEl.addEventListener('change', handleRoundsChange);
 roundsInputEl.addEventListener('input', handleRoundsChange);
 qrCanvas.addEventListener('click', openQrOverlay);
 qrOverlay.addEventListener('click', closeQrOverlay);
+resultsLobbyBtn.addEventListener('click', returnToLobby);
 
 window.addEventListener('resize', resizeCanvas);
 connectWebSocket();
