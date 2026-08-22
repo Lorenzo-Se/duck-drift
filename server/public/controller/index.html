@@ -247,6 +247,71 @@
     #game-start-flash.visible {
       opacity: 1;
     }
+
+    #game-over-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 24px;
+      box-sizing: border-box;
+      background: rgba(26, 26, 46, 0.95);
+      color: #fff;
+      text-align: center;
+    }
+
+    #game-over-overlay[hidden] {
+      display: none !important;
+    }
+
+    #game-over-title {
+      margin: 0;
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    #game-over-title.win {
+      color: #2ecc71;
+    }
+
+    #game-over-title.lose {
+      color: #e74c3c;
+    }
+
+    #game-over-subtitle {
+      margin: 0;
+      font-size: 1rem;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .game-over-results {
+      width: min(100%, 320px);
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    .game-over-results th,
+    .game-over-results td {
+      padding: 0.45rem 0.6rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      text-align: left;
+    }
+
+    .game-over-results th {
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .game-over-results tr.self td {
+      color: #2ecc71;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -277,6 +342,20 @@
     <span id="game-start-title">Los!</span>
     <span id="game-start-details" class="game-start-details" hidden></span>
   </div>
+  <div id="game-over-overlay" hidden aria-hidden="true">
+    <h2 id="game-over-title">Spiel beendet</h2>
+    <p id="game-over-subtitle"></p>
+    <table class="game-over-results">
+      <thead>
+        <tr>
+          <th>Platz</th>
+          <th>Name</th>
+          <th>Runden</th>
+        </tr>
+      </thead>
+      <tbody id="game-over-results-body"></tbody>
+    </table>
+  </div>
 
   <script>
     const carSelectScreen = document.getElementById('car-select-screen');
@@ -300,6 +379,7 @@
     let playerId = null;
     let slot = null;
     let inputIntervalId = null;
+    let gameFinished = false;
 
     const state = { brake: false, gas: false, steering: 0 };
 
@@ -392,7 +472,7 @@
     }
 
     function sendInput() {
-      if (!joined || !ws || ws.readyState !== WebSocket.OPEN) return;
+      if (!joined || gameFinished || !ws || ws.readyState !== WebSocket.OPEN) return;
 
       ws.send(JSON.stringify({
         type: 'input',
@@ -451,6 +531,8 @@
           showCarSelectScreen();
         } else if (msg.type === 'broadcast' && msg.event === 'gameStart') {
           showGameStartFlash(msg.mapName, msg.totalRounds);
+        } else if (msg.type === 'broadcast' && msg.event === 'gameOver') {
+          showGameOverOverlay(msg.winnerId, msg.results);
         } else if (msg.type === 'error') {
           handleJoinFailure(msg.message || 'Beitritt fehlgeschlagen.');
         }
@@ -475,9 +557,16 @@
     const gameStartFlash = document.getElementById('game-start-flash');
     const gameStartTitle = document.getElementById('game-start-title');
     const gameStartDetails = document.getElementById('game-start-details');
+    const gameOverOverlay = document.getElementById('game-over-overlay');
+    const gameOverTitle = document.getElementById('game-over-title');
+    const gameOverSubtitle = document.getElementById('game-over-subtitle');
+    const gameOverResultsBody = document.getElementById('game-over-results-body');
     let gameStartFlashTimeout = null;
 
     function showGameStartFlash(mapName, totalRounds) {
+      gameFinished = false;
+      gameOverOverlay.hidden = true;
+      gameOverOverlay.setAttribute('aria-hidden', 'true');
       gameStartTitle.textContent = 'Los!';
 
       if (mapName && Number.isFinite(totalRounds)) {
@@ -498,7 +587,60 @@
         gameStartFlash.classList.remove('visible');
         gameStartFlash.hidden = true;
         gameStartFlashTimeout = null;
+        if (!gameFinished) {
+          startInputLoop();
+        }
       }, 1200);
+    }
+
+    function showGameOverOverlay(winnerId, results) {
+      gameFinished = true;
+      stopInputLoop();
+      state.steering = 0;
+      state.gas = false;
+      state.brake = false;
+
+      const myResult = Array.isArray(results)
+        ? results.find((entry) => entry.playerId === playerId)
+        : null;
+      const winner = Array.isArray(results)
+        ? results.find((entry) => entry.playerId === winnerId)
+        : null;
+
+      if (winnerId === playerId) {
+        gameOverTitle.textContent = 'Du hast gewonnen!';
+        gameOverTitle.className = 'win';
+      } else {
+        gameOverTitle.textContent = 'Spiel beendet';
+        gameOverTitle.className = 'lose';
+      }
+
+      if (myResult) {
+        gameOverSubtitle.textContent = `Dein Ergebnis: Platz ${myResult.position}`;
+      } else if (winner) {
+        gameOverSubtitle.textContent = `${winner.name} hat gewonnen`;
+      } else {
+        gameOverSubtitle.textContent = '';
+      }
+
+      gameOverResultsBody.innerHTML = '';
+      if (Array.isArray(results)) {
+        for (const entry of results) {
+          const row = document.createElement('tr');
+          if (entry.playerId === playerId) {
+            row.className = 'self';
+          }
+          row.innerHTML = `
+            <td>${entry.position}</td>
+            <td>${entry.name}</td>
+            <td>${entry.lap}</td>
+          `;
+          gameOverResultsBody.appendChild(row);
+        }
+      }
+
+      gameOverOverlay.hidden = false;
+      gameOverOverlay.setAttribute('aria-hidden', 'false');
     }
 
     function isIos() {
