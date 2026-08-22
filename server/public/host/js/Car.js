@@ -1,5 +1,3 @@
-import { CAR_SCREEN_ANGLE } from './viewports.js';
-
 const ACCEL = 300;
 const BRAKE = 400;
 const STEER_SPEED = 3.0;
@@ -130,26 +128,14 @@ export class Car {
     }
   }
 
-  drawBody(ctx) {
-    ctx.fillStyle = this.color;
-    ctx.fillRect(-12, -6, 24, 12);
-    ctx.fillStyle = '#ffcc00';
-    ctx.fillRect(8, -4, 6, 8);
-  }
-
   draw(ctx) {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    this.drawBody(ctx);
-    ctx.restore();
-  }
-
-  drawFixed(ctx, x, y) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(CAR_SCREEN_ANGLE);
-    this.drawBody(ctx);
+    ctx.fillStyle = this.color;
+    ctx.fillRect(-12, -6, 24, 12);
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillRect(8, -4, 6, 8);
     ctx.restore();
   }
 }

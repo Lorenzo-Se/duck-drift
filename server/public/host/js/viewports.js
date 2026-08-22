@@ -1,5 +1,4 @@
 export const CAMERA_VIEW_SIZE = 600;
-export const CAR_SCREEN_ANGLE = -Math.PI / 2;
 
 export function getViewportRects(playerCount, cw, ch) {
   if (playerCount <= 1) {
@@ -38,34 +37,22 @@ export function getFollowCameraTransform(car, rect, dpr, viewSize = CAMERA_VIEW_
   const centerX = rect.x + rect.w / 2;
   const centerY = rect.y + rect.h / 2;
   const scaled = scale * dpr;
-  const rot = -car.angle - CAR_SCREEN_ANGLE;
-  const cos = Math.cos(rot);
-  const sin = Math.sin(rot);
 
   return [
-    scaled * cos,
-    scaled * sin,
-    -scaled * sin,
-    scaled * cos,
-    dpr * centerX - car.x * scaled * cos + car.y * scaled * sin,
-    dpr * centerY - car.x * scaled * sin - car.y * scaled * cos,
+    scaled,
+    0,
+    0,
+    scaled,
+    dpr * centerX - car.x * scaled,
+    dpr * centerY - car.y * scaled,
   ];
 }
 
-export function drawWorldScene(ctx, trackImg, cars, viewportCar) {
+export function drawScene(ctx, trackImg, cars) {
   ctx.drawImage(trackImg, 0, 0);
   for (const car of cars) {
-    if (car !== viewportCar) {
-      car.draw(ctx);
-    }
+    car.draw(ctx);
   }
-}
-
-export function drawFixedCar(ctx, car, rect, dpr) {
-  const centerX = rect.x + rect.w / 2;
-  const centerY = rect.y + rect.h / 2;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  car.drawFixed(ctx, centerX, centerY);
 }
 
 export function drawViewportDividers(ctx, rects, dpr) {
