@@ -1,11 +1,14 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
 
 const PORT = process.env.PORT || 3000;
 
 const app = express();
 app.use(express.json());
+app.use('/controller', express.static(path.join(__dirname, '../public/controller')));
+app.get('/', (_req, res) => res.redirect('/controller/'));
 
 const highscores = new Map();
 const rooms = new Map();
