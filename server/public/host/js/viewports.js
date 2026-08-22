@@ -62,7 +62,7 @@ export function getFollowCameraTransform(car, rect, dpr, viewSize = CAMERA_VIEW_
 export function drawScene(ctx, trackImg, cars, padding = 0) {
   const w = trackImg.naturalWidth;
   const h = trackImg.naturalHeight;
-  ctx.fillStyle = '#438e34';
+  ctx.fillStyle = '#3A7D34';
   ctx.fillRect(-padding, -padding, w + padding * 2, h + padding * 2);
   ctx.drawImage(trackImg, 0, 0);
   for (const car of cars) {
