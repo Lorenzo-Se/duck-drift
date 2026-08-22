@@ -4,6 +4,8 @@ const STEER_SPEED = 3.0;
 const LATERAL_FRICTION = 0.95;
 const FORWARD_FRICTION = 0.98;
 const MAX_SPEED = 400;
+const WALL_BOUNCE = 0.35;
+const WALL_SPEED_LOSS = 0.5;
 
 export class Car {
   constructor(x, y, angle = 0) {
@@ -17,12 +19,13 @@ export class Car {
     this.brake = false;
   }
 
-  update(dt) {
+  update(dt, trackMask = null) {
     const preForwardX = Math.cos(this.angle);
     const preForwardY = Math.sin(this.angle);
     const preForwardSpeed = this.vx * preForwardX + this.vy * preForwardY;
 
-    const steerFactor = Math.min(1, Math.abs(preForwardSpeed) / 50);
+    const speedSteer = Math.min(1, Math.abs(preForwardSpeed) / 50);
+    const steerFactor = this.steering !== 0 ? Math.max(0.4, speedSteer) : speedSteer;
     this.angle += this.steering * STEER_SPEED * steerFactor * dt;
 
     const forwardX = Math.cos(this.angle);
@@ -60,8 +63,68 @@ export class Car {
       this.vy *= scale;
     }
 
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
+    const oldX = this.x;
+    const oldY = this.y;
+    const newX = oldX + this.vx * dt;
+    const newY = oldY + this.vy * dt;
+
+    if (!trackMask) {
+      this.x = newX;
+      this.y = newY;
+      return;
+    }
+
+    if (!trackMask.hitsCar(newX, newY, this.angle)) {
+      this.x = newX;
+      this.y = newY;
+      return;
+    }
+
+    const blockedX = trackMask.hitsCar(newX, oldY, this.angle);
+    const blockedY = trackMask.hitsCar(oldX, newY, this.angle);
+
+    if (!blockedX) {
+      this.x = newX;
+    } else if (!blockedY) {
+      this.y = newY;
+    }
+
+    const bounce = WALL_BOUNCE * WALL_SPEED_LOSS;
+    const moveX = newX - oldX;
+    const moveY = newY - oldY;
+    const moveLen = Math.hypot(moveX, moveY);
+
+    if (blockedX && blockedY && moveLen > 0.0001) {
+      const nx = moveX / moveLen;
+      const ny = moveY / moveLen;
+      const velInto = this.vx * nx + this.vy * ny;
+      if (velInto > 0) {
+        this.vx -= nx * velInto * (1 + bounce);
+        this.vy -= ny * velInto * (1 + bounce);
+      }
+    } else {
+      if (blockedX && ((newX > oldX && this.vx > 0) || (newX < oldX && this.vx < 0))) {
+        this.vx = -this.vx * bounce;
+      }
+
+      if (blockedY && ((newY > oldY && this.vy > 0) || (newY < oldY && this.vy < 0))) {
+        this.vy = -this.vy * bounce;
+      }
+    }
+
+    if (blockedX && blockedY) {
+      const forwardIntoWall = this.vx * forwardX + this.vy * forwardY;
+      if (forwardIntoWall > 0) {
+        this.vx -= forwardX * forwardIntoWall;
+        this.vy -= forwardY * forwardIntoWall;
+      }
+    }
+
+    if (trackMask.hitsCar(this.x, this.y, this.angle)) {
+      const free = trackMask.findFreePosition(this.x, this.y, this.angle);
+      this.x = free.x;
+      this.y = free.y;
+    }
   }
 
   draw(ctx) {

@@ -1,4 +1,5 @@
 import { Car } from './Car.js';
+import { TrackMask } from './TrackMask.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -6,6 +7,9 @@ const dpr = window.devicePixelRatio || 1;
 
 const trackImg = new Image();
 trackImg.src = 'assets/tracks/silverstone_texture.png';
+
+const maskImg = new Image();
+maskImg.src = 'assets/tracks/silverstone_mask.png';
 
 const keys = new Set();
 
@@ -21,6 +25,7 @@ document.addEventListener('keyup', (e) => {
 });
 
 let car;
+let trackMask;
 
 function getTrackTransform(cw, ch, img) {
   const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
@@ -64,7 +69,7 @@ function loop(time) {
 
   if (car) {
     applyKeyboardInput(car);
-    car.update(dt);
+    car.update(dt, trackMask);
     drawFrame();
   }
 
@@ -77,10 +82,18 @@ function resizeCanvas() {
   if (car) drawFrame();
 }
 
-trackImg.onload = () => {
+function tryStartGame() {
+  if (!trackImg.complete || !maskImg.complete) {
+    return;
+  }
+
+  trackMask = new TrackMask(maskImg);
   car = new Car(trackImg.naturalWidth / 2, trackImg.naturalHeight / 2);
   resizeCanvas();
-};
+}
+
+trackImg.onload = tryStartGame;
+maskImg.onload = tryStartGame;
 
 window.addEventListener('resize', resizeCanvas);
 requestAnimationFrame(loop);
