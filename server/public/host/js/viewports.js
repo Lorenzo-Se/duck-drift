@@ -1,4 +1,5 @@
 export const CAMERA_VIEW_SIZE = 600;
+export const CAR_SCREEN_ANGLE = -Math.PI / 2;
 
 export function getViewportRects(playerCount, cw, ch) {
   if (playerCount <= 1) {
@@ -15,14 +16,21 @@ export function getViewportRects(playerCount, cw, ch) {
 
   const halfW = cw / 2;
   const halfH = ch / 2;
-  const grid = [
+
+  if (playerCount === 3) {
+    return [
+      { x: 0, y: halfH, w: halfW, h: halfH },
+      { x: halfW, y: halfH, w: halfW, h: halfH },
+      { x: 0, y: 0, w: cw, h: halfH },
+    ];
+  }
+
+  return [
     { x: 0, y: 0, w: halfW, h: halfH },
     { x: halfW, y: 0, w: halfW, h: halfH },
     { x: 0, y: halfH, w: halfW, h: halfH },
     { x: halfW, y: halfH, w: halfW, h: halfH },
   ];
-
-  return grid.slice(0, playerCount);
 }
 
 export function getFollowCameraTransform(car, rect, dpr, viewSize = CAMERA_VIEW_SIZE) {
@@ -30,22 +38,34 @@ export function getFollowCameraTransform(car, rect, dpr, viewSize = CAMERA_VIEW_
   const centerX = rect.x + rect.w / 2;
   const centerY = rect.y + rect.h / 2;
   const scaled = scale * dpr;
+  const rot = -car.angle - CAR_SCREEN_ANGLE;
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
 
   return [
-    scaled,
-    0,
-    0,
-    scaled,
-    dpr * centerX - car.x * scaled,
-    dpr * centerY - car.y * scaled,
+    scaled * cos,
+    scaled * sin,
+    -scaled * sin,
+    scaled * cos,
+    dpr * centerX - car.x * scaled * cos + car.y * scaled * sin,
+    dpr * centerY - car.x * scaled * sin - car.y * scaled * cos,
   ];
 }
 
-export function drawScene(ctx, trackImg, cars) {
+export function drawWorldScene(ctx, trackImg, cars, viewportCar) {
   ctx.drawImage(trackImg, 0, 0);
   for (const car of cars) {
-    car.draw(ctx);
+    if (car !== viewportCar) {
+      car.draw(ctx);
+    }
   }
+}
+
+export function drawFixedCar(ctx, car, rect, dpr) {
+  const centerX = rect.x + rect.w / 2;
+  const centerY = rect.y + rect.h / 2;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  car.drawFixed(ctx, centerX, centerY);
 }
 
 export function drawViewportDividers(ctx, rects, dpr) {

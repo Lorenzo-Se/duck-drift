@@ -3,8 +3,9 @@ import { resolveCarCollisions } from './CarCollisions.js';
 import { TrackMask } from './TrackMask.js';
 import {
   CAMERA_VIEW_SIZE,
-  drawScene,
+  drawFixedCar,
   drawViewportDividers,
+  drawWorldScene,
   getFollowCameraTransform,
   getViewportRects,
 } from './viewports.js';
@@ -156,7 +157,8 @@ function drawFrame() {
     ctx.rect(rect.x, rect.y, rect.w, rect.h);
     ctx.clip();
     ctx.setTransform(...getFollowCameraTransform(car, rect, dpr, CAMERA_VIEW_SIZE));
-    drawScene(ctx, trackImg, cars);
+    drawWorldScene(ctx, trackImg, cars, car);
+    drawFixedCar(ctx, car, rect, dpr);
     ctx.restore();
   }
 
