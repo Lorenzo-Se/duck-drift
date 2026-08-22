@@ -8,6 +8,123 @@ const app = express();
 app.use(express.json());
 
 const highscores = new Map();
+const rooms = new Map();
+
+function send(ws, obj) {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(obj));
+  }
+}
+
+function generateRoomCode() {
+  let code;
+  do {
+    code = String(Math.floor(1000 + Math.random() * 9000));
+  } while (rooms.has(code));
+  return code;
+}
+
+function generatePlayerId(room) {
+  let i = 1;
+  while (room.phones.has(`p${i}`)) {
+    i++;
+  }
+  return `p${i}`;
+}
+
+function findFreeSlot(room) {
+  const usedSlots = new Set([...room.phones.values()].map((p) => p.slot));
+  for (let slot = 0; slot < 4; slot++) {
+    if (!usedSlots.has(slot)) {
+      return slot;
+    }
+  }
+  return null;
+}
+
+function handleCreateRoom(ws) {
+  if (ws.roomCode) {
+    send(ws, { type: 'error', message: 'Already in a room' });
+    return;
+  }
+
+  const roomCode = generateRoomCode();
+  rooms.set(roomCode, { host: ws, phones: new Map() });
+
+  ws.role = 'host';
+  ws.roomCode = roomCode;
+
+  console.log(`Room created: ${roomCode}`);
+  send(ws, { type: 'roomCreated', roomCode });
+}
+
+function handleJoin(ws, message) {
+  const { roomCode, name } = message;
+
+  if (ws.roomCode) {
+    send(ws, { type: 'error', message: 'Already in a room' });
+    return;
+  }
+
+  const room = rooms.get(roomCode);
+  if (!room) {
+    send(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+
+  const slot = findFreeSlot(room);
+  if (slot === null) {
+    send(ws, { type: 'error', message: 'Room full' });
+    return;
+  }
+
+  const playerId = generatePlayerId(room);
+  room.phones.set(playerId, { ws, name, slot });
+
+  ws.role = 'phone';
+  ws.roomCode = roomCode;
+  ws.playerId = playerId;
+
+  send(room.host, { type: 'playerJoined', playerId, name, slot });
+  send(ws, { type: 'joined', playerId, slot });
+  console.log(`Player joined room ${roomCode}: ${name} (${playerId}, slot ${slot})`);
+}
+
+function handleMessage(ws, message) {
+  switch (message.type) {
+    case 'createRoom':
+      handleCreateRoom(ws);
+      break;
+    case 'join':
+      handleJoin(ws, message);
+      break;
+    default:
+      send(ws, { type: 'error', message: 'Unknown message type' });
+  }
+}
+
+function handleDisconnect(ws) {
+  if (!ws.roomCode) {
+    return;
+  }
+
+  const room = rooms.get(ws.roomCode);
+  if (!room) {
+    return;
+  }
+
+  if (ws.role === 'host') {
+    rooms.delete(ws.roomCode);
+    console.log(`Room deleted: ${ws.roomCode}`);
+    return;
+  }
+
+  if (ws.role === 'phone' && ws.playerId) {
+    room.phones.delete(ws.playerId);
+    send(room.host, { type: 'playerLeft', playerId: ws.playerId });
+    console.log(`Player left room ${ws.roomCode}: ${ws.playerId}`);
+  }
+}
 
 app.get('/api/highscores', (_req, res) => {
   const top10 = [...highscores.entries()]
@@ -43,20 +160,16 @@ wss.on('connection', (ws) => {
     try {
       message = JSON.parse(data);
     } catch {
-      ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON' }));
+      send(ws, { type: 'error', message: 'Invalid JSON' });
       return;
     }
 
-    const payload = JSON.stringify(message);
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(payload);
-      }
-    });
+    handleMessage(ws, message);
   });
 
   ws.on('close', () => {
     console.log('WebSocket client disconnected');
+    handleDisconnect(ws);
   });
 });
 
