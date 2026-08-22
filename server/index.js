@@ -4,10 +4,15 @@ const path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
 const highscores = require('./highscores');
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
+if (!PORT) {
+  console.error('PORT environment variable is required');
+  process.exit(1);
+}
 
 const app = express();
 app.use(express.json());
+app.use('/host', express.static(path.join(__dirname, '../public/host')));
 app.use('/controller', express.static(path.join(__dirname, '../public/controller')));
 app.get('/', (_req, res) => res.redirect('/controller/'));
 
