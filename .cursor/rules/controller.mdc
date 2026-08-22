@@ -1,0 +1,15 @@
+---
+description: Regeln für den Handy-Controller-Client (Neigungssensor, Touch-Buttons, Join-Flow)
+globs: public/controller/**/*.js,public/controller/**/*.html
+alwaysApply: false
+---
+
+Du arbeitest am Handy-Controller (`public/controller/`). Mobile-first, läuft im Handy-Browser:
+
+- HTML mit `<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">` und `touch-action: none` auf den Steuerelementen, damit kein Scrollen/Zoomen die Steuerung stört.
+- Lenkung über `DeviceOrientationEvent` (gamma-Wert, normalisiert auf -1 bis 1). iOS 13+ braucht einen expliziten Button-Klick, der `DeviceOrientationEvent.requestPermission()` aufruft – das immer einbauen, sonst funktioniert es auf iPhones nicht.
+- Gas/Bremse über grosse Touch-Buttons (touchstart/touchend), nicht über Tastatur-Events.
+- Input-Nachrichten exakt im Format aus dem Root `.cursorrules` senden (`{type:'input', target:'host', steering, throttle, brake}`), in einem festen Intervall (z.B. alle 50ms), nicht bei jedem einzelnen Event, um die Übertragungsgrösse klein zu halten.
+- Join-Flow: Raumcode kann per URL-Parameter (`?room=1234`, für QR-Code-Scan) vorausgefüllt sein oder manuell eingegeben werden.
+- Bis der echte Server bereit ist: mit einem einfachen lokalen Mock-WebSocket-Server oder Konsolen-Logging testen – nicht blockieren lassen.
+- Nach jeder Änderung: kurz beschreiben, wie man es auf einem echten Handy im selben WLAN testet (lokale IP statt localhost verwenden!).

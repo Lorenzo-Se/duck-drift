@@ -1,0 +1,16 @@
+---
+description: Regeln für den Hauptbildschirm-Client (Rendering, Physik, Kollision, Split-Screen, Spiellogik)
+globs: public/host/**/*.js,public/host/**/*.html
+alwaysApply: false
+---
+
+Du arbeitest am Hauptbildschirm-Client (`public/host/`). Das ist der wichtigste Teil des Spiels – hier lebt fast die gesamte Logik:
+
+- Rendering via `<canvas>` + 2D-Context, kein Spiele-Framework nötig (Zeit sparen), ausser explizit gewünscht.
+- Auto-Physik soll "drifty" sein: seitliche Geschwindigkeit wird nur langsam abgebaut (nicht sofort auf 0), nicht wie ein simples Top-Down-Auto mit perfekter Haftung.
+- Kollision mit der Strecke: über eine separate Schwarz/Weiss-Maskengrafik (Alpha- oder Farbwert-Check), nicht über komplexe Physik-Engines.
+- Split-Screen: 1 Spieler = Vollbild, 2 = nebeneinander, 3–4 = 2x2-Raster. Jede Kamera folgt genau einem Auto.
+- Bis der echte Server/echte Controller bereit sind: mit Keyboard-Steuerung (Pfeiltasten) und/oder einem lokalen Mock-WebSocket weiterentwickeln und testen – nicht auf Server/Controller warten.
+- Sobald echte WebSocket-Verbindung genutzt wird: exakt das Protokoll aus dem Root `.cursorrules` verwenden (`playerJoined`, `playerInput`, `playerLeft`, `roomCreated`).
+- Neue Spiel-Features (z.B. Hot-Potato-Modus) sollen möglichst ohne Server-Änderungen auskommen – nutze dafür den generischen `broadcast`-Nachrichtentyp, falls überhaupt Server-Kommunikation nötig ist.
+- Nach jeder Änderung: kurz beschreiben, wie man es isoliert im Browser testet (z.B. "öffne index.html, drücke Pfeiltasten, das Auto sollte...").

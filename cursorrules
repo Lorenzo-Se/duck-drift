@@ -1,0 +1,53 @@
+# Projekt-Kontext: 2D Top-Down Racing Game (Hackathon, Multiplayer per Handy)
+
+Dies ist ein Game-Jam-Projekt mit 5h Entwicklungszeit. Ziel: schnell funktionierender, kompakter Code – kein Over-Engineering, keine unnötigen Abstraktionen oder Frameworks, wo Vanilla JS reicht.
+
+## Architektur (nicht verändern ohne Rücksprache im Team)
+
+Ein Node.js-Server (`server/`) ist ein **generischer, "dummer" Relay**: Er kennt keine Spiellogik, sondern leitet WebSocket-Nachrichten zwischen zwei Client-Typen weiter:
+- **Host** (`public/host/`) = der eine Hauptbildschirm, auf dem das eigentliche Spiel läuft (Rendering, Physik, Kollision, Split-Screen, alle Spielregeln)
+- **Controller** (`public/controller/`) = die Handys der Spieler:innen (nur Input: Neigungssensor für Lenkung, Touch-Buttons für Gas/Bremse)
+
+Der Server bietet zusätzlich eine kleine REST-API für den globalen Highscore (`GET/POST /api/highscores`).
+
+**Wichtige Regel:** Fast die gesamte Spiellogik gehört in `public/host/`, NICHT in den Server. Der Server soll so generisch bleiben, dass neue Spiel-Features (z.B. Hot-Potato-Modus) idealerweise ohne Server-Änderungen auskommen (generischer `broadcast`-Nachrichtentyp).
+
+## Nachrichtenprotokoll (WebSocket, immer JSON mit `type`-Feld)
+
+```jsonc
+// Controller → Server
+{ "type": "join", "roomCode": "1234", "name": "Alex" }
+{ "type": "input", "target": "host", "steering": -1.0, "throttle": true, "brake": false }
+
+// Host → Server
+{ "type": "createRoom" }
+{ "type": "broadcast", "target": "phones", "event": "gameStart" }
+{ "type": "gameOver", "winnerId": "p1", "results": [...] }
+
+// Server → Host
+{ "type": "roomCreated", "roomCode": "1234" }
+{ "type": "playerJoined", "playerId": "p1", "name": "Alex", "slot": 0 }
+{ "type": "playerInput", "playerId": "p1", "steering": -1.0, "throttle": true, "brake": false }
+{ "type": "playerLeft", "playerId": "p1" }
+
+// Server → Controller
+{ "type": "joined", "playerId": "p1", "slot": 0 }
+```
+
+Wenn du dieses Format änderst, ändere es konsistent an ALLEN drei Stellen (server, host, controller) und weise im Chat-Antwort explizit darauf hin, dass die anderen zwei Teile ebenfalls angepasst werden müssen.
+
+## Ordner-Eigentümerschaft (nicht fremd editieren, um Merge-Konflikte zu vermeiden)
+
+- `server/**` → Server-Entwickler:in
+- `public/host/**` → Hauptbildschirm/Spiel-Entwickler:in
+- `public/controller/**` → Controller-Entwickler:in
+- Root-Dateien (`Dockerfile`, `README.md`, `package.json` im Root falls vorhanden) → Deploy/Doku-Person
+
+## Allgemeine Coding-Konventionen
+
+- Plain JavaScript (ES2020+), kein TypeScript-Setup, kein Build-Step nötig – Zeit sparen.
+- Keine schweren Frameworks/Libraries laden, wenn es auch mit ein paar Zeilen Vanilla JS geht (Bewertungskriterium: kleine "Transferred Size" im Browser).
+- `process.env.PORT` verwenden, keine hartcodierten Ports/URLs.
+- Kommentare und Variablennamen auf Deutsch oder Englisch, aber innerhalb einer Datei konsistent bleiben.
+- Bei jeder Code-Änderung: kurz sagen, wie man sie lokal testet (Browser öffnen, Konsole prüfen, `wscat`-Befehl, curl-Befehl, etc.) – wir wollen nach jedem Schritt sofort testen können.
+- Assets (Bilder) möglichst klein/komprimiert halten.
