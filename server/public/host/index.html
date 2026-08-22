@@ -10,49 +10,130 @@
       height: 100%;
       overflow: hidden;
       background: #000;
+      font-family: system-ui, sans-serif;
+      color: #fff;
     }
-    canvas {
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #lobby-panel {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.75rem 1.25rem;
+      background: #1a1a2e;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #lobby-panel.hidden {
+      display: none;
+    }
+
+    .lobby-code-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .lobby-label {
+      margin: 0;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    #room-code {
+      margin: 0;
+      font-family: ui-monospace, 'Cascadia Code', monospace;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      line-height: 1;
+    }
+
+    #qr-code {
+      display: block;
+      width: 72px;
+      height: 72px;
+      background: #fff;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .lobby-players {
+      flex: 1;
+      min-width: 0;
+    }
+
+    #player-count {
+      margin: 0 0 0.2rem;
+      font-size: 0.75rem;
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    #player-list {
+      margin: 0;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    #start-btn {
+      flex-shrink: 0;
+      padding: 0.65rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      background: #2ecc71;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #start-btn:disabled {
+      background: #444;
+      color: rgba(255, 255, 255, 0.4);
+      cursor: not-allowed;
+    }
+
+    #game-wrap {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+
+    #game {
       display: block;
       width: 100%;
       height: 100%;
     }
-    #room-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 10;
-      pointer-events: none;
-      text-align: center;
-      padding: 1.5rem 1rem;
-      background: rgba(0, 0, 0, 0.55);
-    }
-    .room-label {
-      margin: 0 0 0.25rem;
-      font-family: system-ui, sans-serif;
-      font-size: 1.25rem;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.75);
-    }
-    .room-code {
-      margin: 0;
-      font-family: ui-monospace, 'Cascadia Code', monospace;
-      font-size: clamp(4rem, 12vw, 10rem);
-      font-weight: 700;
-      line-height: 1;
-      letter-spacing: 0.2em;
-      color: #fff;
-    }
   </style>
 </head>
 <body>
-  <div id="room-overlay">
-    <p class="room-label">Raumcode</p>
-    <p id="room-code" class="room-code">----</p>
+  <div id="lobby-panel">
+    <div class="lobby-code-block">
+      <p class="lobby-label">Lobby-Code</p>
+      <p id="room-code">----</p>
+    </div>
+    <canvas id="qr-code" width="72" height="72" aria-label="QR-Code zum Beitreten"></canvas>
+    <div class="lobby-players">
+      <p id="player-count">0 / 4 Spieler</p>
+      <p id="player-list">Warte auf Spieler…</p>
+    </div>
+    <button type="button" id="start-btn" disabled>Spiel starten</button>
   </div>
-  <canvas id="game"></canvas>
+  <div id="game-wrap">
+    <canvas id="game"></canvas>
+  </div>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

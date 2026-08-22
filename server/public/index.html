@@ -117,7 +117,7 @@
     <h1>Duck Drift</h1>
     <form id="join-form">
       <label>
-        Raumcode
+        Lobby-Code
         <input id="room-code" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" autocomplete="off" required>
       </label>
       <label>
@@ -157,7 +157,7 @@
       const name = playerNameInput.value.trim();
 
       if (!/^\d{4}$/.test(roomCode)) {
-        joinError.textContent = 'Raumcode muss 4 Ziffern haben.';
+        joinError.textContent = 'Lobby-Code muss 4 Ziffern haben.';
         return;
       }
       if (!name) {

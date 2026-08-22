@@ -1,6 +1,7 @@
 import { Car } from './Car.js';
 import { resolveCarCollisions } from './CarCollisions.js';
 import { TrackMask } from './TrackMask.js';
+import { drawQrCode } from './qrcode.js';
 import {
   CAMERA_VIEW_SIZE,
   drawScene,
@@ -12,7 +13,12 @@ import {
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const dpr = window.devicePixelRatio || 1;
+const lobbyPanel = document.getElementById('lobby-panel');
 const roomCodeEl = document.getElementById('room-code');
+const qrCanvas = document.getElementById('qr-code');
+const playerListEl = document.getElementById('player-list');
+const playerCountEl = document.getElementById('player-count');
+const startBtn = document.getElementById('start-btn');
 
 const SLOT_COLORS = ['#ff3333', '#3366ff', '#33cc33', '#ffcc00'];
 const SLOT_OFFSETS = [
@@ -31,6 +37,9 @@ maskImg.src = 'assets/tracks/silverstone_mask.png';
 let cars = [];
 let trackMask;
 let trackReady = false;
+let gamePhase = 'lobby';
+let ws = null;
+let roomCode = null;
 const players = new Map();
 
 function getTrackCenter() {
@@ -40,8 +49,58 @@ function getTrackCenter() {
   };
 }
 
+function getSpawnPosition(slot) {
+  const { cx, cy } = getTrackCenter();
+  const offset = SLOT_OFFSETS[slot] ?? SLOT_OFFSETS[0];
+  return {
+    x: cx + offset.dx,
+    y: cy + offset.dy,
+    angle: offset.angle,
+  };
+}
+
 function syncCarsFromPlayers() {
   cars = [...players.values()].map((p) => p.car);
+}
+
+function resetPlayerCar(playerId) {
+  const player = players.get(playerId);
+  if (!player) {
+    return;
+  }
+
+  const spawn = getSpawnPosition(player.slot);
+  const { car } = player;
+  car.x = spawn.x;
+  car.y = spawn.y;
+  car.angle = spawn.angle;
+  car.vx = 0;
+  car.vy = 0;
+  car.steering = 0;
+  car.throttle = false;
+  car.brake = false;
+}
+
+function resetAllCars() {
+  for (const playerId of players.keys()) {
+    resetPlayerCar(playerId);
+  }
+}
+
+function updateLobbyUI() {
+  const count = players.size;
+  playerCountEl.textContent = `${count} / 4 Spieler`;
+
+  if (count === 0) {
+    playerListEl.textContent = 'Warte auf Spieler…';
+  } else {
+    const names = [...players.values()]
+      .sort((a, b) => a.slot - b.slot)
+      .map((p) => p.name);
+    playerListEl.textContent = names.join(' · ');
+  }
+
+  startBtn.disabled = count < 2;
 }
 
 function spawnPlayerCar(playerId, name, slot) {
@@ -49,13 +108,13 @@ function spawnPlayerCar(playerId, name, slot) {
     return;
   }
 
-  const { cx, cy } = getTrackCenter();
-  const offset = SLOT_OFFSETS[slot] ?? SLOT_OFFSETS[0];
+  const spawn = getSpawnPosition(slot);
   const color = SLOT_COLORS[slot] ?? '#ffffff';
-  const car = new Car(cx + offset.dx, cy + offset.dy, offset.angle, color);
+  const car = new Car(spawn.x, spawn.y, spawn.angle, color);
 
   players.set(playerId, { car, slot, name });
   syncCarsFromPlayers();
+  updateLobbyUI();
 }
 
 function removePlayer(playerId) {
@@ -65,12 +124,43 @@ function removePlayer(playerId) {
 
   players.delete(playerId);
   syncCarsFromPlayers();
+  updateLobbyUI();
+}
+
+function startGame() {
+  if (players.size < 2 || gamePhase !== 'lobby') {
+    return;
+  }
+
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'broadcast',
+      target: 'phones',
+      event: 'gameStart',
+    }));
+  }
+
+  resetAllCars();
+  gamePhase = 'playing';
+  lobbyPanel.classList.add('hidden');
+  resizeCanvas();
+}
+
+function renderQrCode() {
+  if (!roomCode) {
+    return;
+  }
+  const joinUrl = new URL('/', location.origin);
+  joinUrl.searchParams.set('room', roomCode);
+  drawQrCode(qrCanvas, joinUrl.toString());
 }
 
 function handleServerMessage(msg) {
   switch (msg.type) {
     case 'roomCreated':
-      roomCodeEl.textContent = msg.roomCode;
+      roomCode = msg.roomCode;
+      roomCodeEl.textContent = roomCode;
+      renderQrCode();
       break;
     case 'playerJoined':
       spawnPlayerCar(msg.playerId, msg.name, msg.slot);
@@ -100,7 +190,7 @@ function handleServerMessage(msg) {
 
 function connectWebSocket() {
   const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
-  const ws = new WebSocket(wsUrl);
+  ws = new WebSocket(wsUrl);
 
   ws.onopen = () => {
     ws.send(JSON.stringify({ type: 'createRoom' }));
@@ -124,6 +214,15 @@ function connectWebSocket() {
 
   ws.onclose = () => {
     roomCodeEl.textContent = '----';
+    ws = null;
+  };
+}
+
+function getCanvasSize() {
+  const wrap = canvas.parentElement;
+  return {
+    cw: wrap.clientWidth,
+    ch: wrap.clientHeight,
   };
 }
 
@@ -132,8 +231,7 @@ function drawFrame() {
     return;
   }
 
-  const cw = window.innerWidth;
-  const ch = window.innerHeight;
+  const { cw, ch } = getCanvasSize();
   const activePlayers = [...players.values()].sort((a, b) => a.slot - b.slot);
   const count = activePlayers.length;
 
@@ -187,8 +285,9 @@ function loop(time) {
 }
 
 function resizeCanvas() {
-  canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
+  const { cw, ch } = getCanvasSize();
+  canvas.width = cw * dpr;
+  canvas.height = ch * dpr;
   drawFrame();
 }
 
@@ -202,9 +301,11 @@ function tryStartGame() {
   resizeCanvas();
 }
 
+startBtn.addEventListener('click', startGame);
 trackImg.onload = tryStartGame;
 maskImg.onload = tryStartGame;
 
 window.addEventListener('resize', resizeCanvas);
 connectWebSocket();
+updateLobbyUI();
 requestAnimationFrame(loop);
