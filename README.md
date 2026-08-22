@@ -1,5 +1,7 @@
 # Duck Drift
 
+**[Live-Demo](https://server.b206b21.deploio.app/)**
+
 Duck Drift ist ein 2D-Top-Down-Rennspiel für den Browser mit Multiplayer-Steuerung per Smartphone. Ein Hauptbildschirm (**Host**) zeigt das Rennen, bis zu 4 Spieler:innen steuern ihre Ente über ihr Handy (**Controller**) via Neigungssensor und Touch-Buttons. Ein schlanker Node.js-Server verbindet Host und Controller per WebSocket und speichert globale Highscores.
 
 Entstanden als Hackathon-Projekt (5h Entwicklungszeit) — bewusst simpel gehalten, kein Build-Step, kein TypeScript, kein schweres Framework.
