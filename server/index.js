@@ -1,13 +1,13 @@
 const express = require('express');
 const http = require('http');
 const { WebSocketServer, WebSocket } = require('ws');
+const highscores = require('./highscores');
 
 const PORT = process.env.PORT || 3000;
 
 const app = express();
 app.use(express.json());
 
-const highscores = new Map();
 const rooms = new Map();
 
 function send(ws, obj) {
@@ -174,12 +174,7 @@ function handleDisconnect(ws) {
 }
 
 app.get('/api/highscores', (_req, res) => {
-  const top10 = [...highscores.entries()]
-    .map(([playerName, wins]) => ({ playerName, wins }))
-    .sort((a, b) => b.wins - a.wins)
-    .slice(0, 10);
-
-  res.json(top10);
+  res.json(highscores.getTop10());
 });
 
 app.post('/api/highscores', (req, res) => {
@@ -189,10 +184,8 @@ app.post('/api/highscores', (req, res) => {
     return res.status(400).json({ error: 'playerName and won: true required' });
   }
 
-  const currentWins = highscores.get(playerName) || 0;
-  highscores.set(playerName, currentWins + 1);
-
-  console.log(`Highscore updated: ${playerName} -> ${currentWins + 1} wins`);
+  const wins = highscores.recordWin(playerName);
+  console.log(`Highscore updated: ${playerName} -> ${wins} wins`);
   res.json({ ok: true });
 });
 
@@ -219,6 +212,8 @@ wss.on('connection', (ws) => {
     handleDisconnect(ws);
   });
 });
+
+highscores.loadHighscores();
 
 server.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);
