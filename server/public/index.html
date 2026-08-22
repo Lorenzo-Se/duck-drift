@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Duck Drift</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: #1a1a2e;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+    }
+
+    #start-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    #start-screen h1 {
+      margin: 0 0 32px;
+      font-size: 1.75rem;
+    }
+
+    #join-form {
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    #join-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    #join-form input {
+      padding: 14px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.25rem;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      touch-action: manipulation;
+    }
+
+    #join-form input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    #room-code {
+      text-align: center;
+      letter-spacing: 0.3em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #join-btn {
+      margin-top: 8px;
+      padding: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #3498db;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: bold;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    #join-btn:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+
+    #create-btn {
+      padding: 16px;
+      border: 2px solid #3498db;
+      border-radius: 8px;
+      background: transparent;
+      color: #3498db;
+      font-size: 1.1rem;
+      font-weight: bold;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    #join-error {
+      min-height: 1.25rem;
+      color: #e74c3c;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="start-screen">
+    <h1>Duck Drift</h1>
+    <form id="join-form">
+      <label>
+        Raumcode
+        <input id="room-code" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" autocomplete="off" required>
+      </label>
+      <label>
+        Name
+        <input id="player-name" type="text" maxlength="20" placeholder="Dein Name" autocomplete="nickname" required>
+      </label>
+      <p id="join-error" aria-live="polite"></p>
+      <button type="submit" id="join-btn">Beitreten</button>
+      <button type="button" id="create-btn">Lobby erstellen</button>
+    </form>
+  </div>
+
+  <script>
+    const joinForm = document.getElementById('join-form');
+    const roomCodeInput = document.getElementById('room-code');
+    const playerNameInput = document.getElementById('player-name');
+    const joinError = document.getElementById('join-error');
+    const createBtn = document.getElementById('create-btn');
+
+    const params = new URLSearchParams(location.search);
+    const roomFromUrl = params.get('room');
+    const errorFromUrl = params.get('error');
+
+    if (roomFromUrl && /^\d{4}$/.test(roomFromUrl)) {
+      roomCodeInput.value = roomFromUrl;
+    }
+
+    if (errorFromUrl) {
+      joinError.textContent = errorFromUrl;
+    }
+
+    joinForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      joinError.textContent = '';
+
+      const roomCode = roomCodeInput.value.trim();
+      const name = playerNameInput.value.trim();
+
+      if (!/^\d{4}$/.test(roomCode)) {
+        joinError.textContent = 'Raumcode muss 4 Ziffern haben.';
+        return;
+      }
+      if (!name) {
+        joinError.textContent = 'Bitte einen Namen eingeben.';
+        return;
+      }
+
+      const url = new URL('/controller/', location.origin);
+      url.searchParams.set('room', roomCode);
+      url.searchParams.set('name', name);
+      location.href = url.toString();
+    });
+
+    createBtn.addEventListener('click', () => {
+      location.href = '/host/';
+    });
+  </script>
+</body>
+</html>

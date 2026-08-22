@@ -14,7 +14,9 @@ const app = express();
 app.use(express.json());
 app.use('/host', express.static(path.join(__dirname, 'public/host')));
 app.use('/controller', express.static(path.join(__dirname, 'public/controller')));
-app.get('/', (_req, res) => res.redirect('/controller/'));
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
 
 const rooms = new Map();
 

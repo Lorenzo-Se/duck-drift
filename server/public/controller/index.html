@@ -23,87 +23,9 @@
       font-family: system-ui, sans-serif;
     }
 
-    #join-screen[hidden],
     #control-screen[hidden],
     #rotate-screen[hidden] {
       display: none !important;
-    }
-
-    #join-screen {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      padding: 24px;
-      box-sizing: border-box;
-      touch-action: manipulation;
-    }
-
-    #join-screen h1 {
-      margin: 0 0 32px;
-      font-size: 1.75rem;
-    }
-
-    #join-form {
-      width: 100%;
-      max-width: 320px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    #join-form label {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 0.9rem;
-      font-weight: 600;
-    }
-
-    #join-form input {
-      padding: 14px 16px;
-      border: none;
-      border-radius: 8px;
-      font-size: 1.25rem;
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      touch-action: manipulation;
-    }
-
-    #join-form input::placeholder {
-      color: rgba(255, 255, 255, 0.4);
-    }
-
-    #room-code {
-      text-align: center;
-      letter-spacing: 0.3em;
-      font-variant-numeric: tabular-nums;
-    }
-
-    #join-btn {
-      margin-top: 8px;
-      padding: 16px;
-      border: none;
-      border-radius: 8px;
-      background: #3498db;
-      color: #fff;
-      font-size: 1.1rem;
-      font-weight: bold;
-      touch-action: manipulation;
-      cursor: pointer;
-    }
-
-    #join-btn:disabled {
-      background: #555;
-      cursor: not-allowed;
-    }
-
-    #join-error {
-      min-height: 1.25rem;
-      color: #e74c3c;
-      font-size: 0.9rem;
-      text-align: center;
     }
 
     .control-btn {
@@ -209,22 +131,6 @@
   </style>
 </head>
 <body>
-  <div id="join-screen">
-    <h1>Duck Drift</h1>
-    <form id="join-form">
-      <label>
-        Raumcode
-        <input id="room-code" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" autocomplete="off" required>
-      </label>
-      <label>
-        Name
-        <input id="player-name" type="text" maxlength="20" placeholder="Dein Name" autocomplete="nickname" required>
-      </label>
-      <p id="join-error" aria-live="polite"></p>
-      <button type="submit" id="join-btn">Beitreten</button>
-    </form>
-  </div>
-
   <div id="control-screen" hidden>
     <div id="rotate-screen">
       <div id="rotate-content">
@@ -240,13 +146,7 @@
   </div>
 
   <script>
-    const joinScreen = document.getElementById('join-screen');
     const controlScreen = document.getElementById('control-screen');
-    const joinForm = document.getElementById('join-form');
-    const roomCodeInput = document.getElementById('room-code');
-    const playerNameInput = document.getElementById('player-name');
-    const joinBtn = document.getElementById('join-btn');
-    const joinError = document.getElementById('join-error');
 
     let ws = null;
     let joined = false;
@@ -256,12 +156,115 @@
 
     const state = { brake: false, gas: false, steering: 0 };
 
+    const params = new URLSearchParams(location.search);
+    const roomCode = params.get('room')?.trim() ?? '';
+    const name = params.get('name')?.trim() ?? '';
+
+    if (!/^\d{4}$/.test(roomCode) || !name) {
+      location.replace('/');
+      throw new Error('Missing join parameters');
+    }
+
+    function redirectWithError(message) {
+      const url = new URL('/', location.origin);
+      url.searchParams.set('error', message);
+      if (/^\d{4}$/.test(roomCode)) {
+        url.searchParams.set('room', roomCode);
+      }
+      location.replace(url.toString());
+    }
+
+    function showControlScreen() {
+      controlScreen.hidden = false;
+      initControls();
+      startLandscapeWatch();
+    }
+
+    function sendInput() {
+      if (!joined || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      ws.send(JSON.stringify({
+        type: 'input',
+        target: 'host',
+        steering: Math.round(state.steering * 100) / 100,
+        throttle: state.gas,
+        brake: state.brake,
+      }));
+    }
+
+    function stopInputLoop() {
+      if (inputIntervalId !== null) {
+        clearInterval(inputIntervalId);
+        inputIntervalId = null;
+      }
+    }
+
+    function startInputLoop() {
+      if (!joined || !ws || ws.readyState !== WebSocket.OPEN || inputIntervalId !== null) return;
+      inputIntervalId = setInterval(sendInput, 50);
+    }
+
+    function handleJoinFailure(message) {
+      stopInputLoop();
+      joined = false;
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      redirectWithError(message);
+    }
+
+    function connectAndJoin() {
+      joined = false;
+
+      const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'join', roomCode, name }));
+      };
+
+      ws.onmessage = (event) => {
+        let msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          handleJoinFailure('Ungültige Server-Antwort.');
+          return;
+        }
+
+        if (msg.type === 'joined') {
+          joined = true;
+          playerId = msg.playerId;
+          slot = msg.slot;
+          showControlScreen();
+          startInputLoop();
+        } else if (msg.type === 'error') {
+          handleJoinFailure(msg.message || 'Beitritt fehlgeschlagen.');
+        }
+      };
+
+      ws.onerror = () => {
+        if (!joined) {
+          handleJoinFailure('Verbindung fehlgeschlagen.');
+        }
+      };
+
+      ws.onclose = () => {
+        stopInputLoop();
+        if (!joined) {
+          handleJoinFailure('Verbindung getrennt.');
+        }
+      };
+    }
+
+    connectAndJoin();
+
     function isIos() {
       return /iPhone|iPad|iPod/i.test(navigator.userAgent);
     }
 
     async function lockScreenOrientation() {
-      // iOS unterstützt screen.orientation.lock() nicht – Nutzer muss systemweite Rotationssperre nutzen
       if (isIos()) return false;
 
       const orientation = screen.orientation;
@@ -321,131 +324,6 @@
       return window.matchMedia('(orientation: landscape)').matches
         || screen.orientation?.type?.startsWith('landscape');
     }
-
-    const roomFromUrl = new URLSearchParams(location.search).get('room');
-    if (roomFromUrl && /^\d{4}$/.test(roomFromUrl)) {
-      roomCodeInput.value = roomFromUrl;
-    }
-
-    function showError(message) {
-      joinError.textContent = message;
-    }
-
-    function setJoining(joining) {
-      joinBtn.disabled = joining;
-      joinBtn.textContent = joining ? 'Verbinde…' : 'Beitreten';
-      roomCodeInput.disabled = joining;
-      playerNameInput.disabled = joining;
-    }
-
-    function showControlScreen() {
-      joinScreen.hidden = true;
-      controlScreen.hidden = false;
-      initControls();
-      startLandscapeWatch();
-    }
-
-    function sendInput() {
-      if (!joined || !ws || ws.readyState !== WebSocket.OPEN) return;
-
-      ws.send(JSON.stringify({
-        type: 'input',
-        target: 'host',
-        steering: Math.round(state.steering * 100) / 100,
-        throttle: state.gas,
-        brake: state.brake,
-      }));
-    }
-
-    function stopInputLoop() {
-      if (inputIntervalId !== null) {
-        clearInterval(inputIntervalId);
-        inputIntervalId = null;
-      }
-    }
-
-    function startInputLoop() {
-      if (!joined || !ws || ws.readyState !== WebSocket.OPEN || inputIntervalId !== null) return;
-      inputIntervalId = setInterval(sendInput, 50);
-    }
-
-    function handleJoinFailure(message) {
-      stopInputLoop();
-      joined = false;
-      if (ws) {
-        ws.close();
-        ws = null;
-      }
-      setJoining(false);
-      showError(message);
-    }
-
-    joinForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      showError('');
-
-      const roomCode = roomCodeInput.value.trim();
-      const name = playerNameInput.value.trim();
-
-      if (!/^\d{4}$/.test(roomCode)) {
-        showError('Raumcode muss 4 Ziffern haben.');
-        return;
-      }
-      if (!name) {
-        showError('Bitte einen Namen eingeben.');
-        return;
-      }
-
-      if (ws) {
-        stopInputLoop();
-        ws.close();
-        ws = null;
-      }
-
-      setJoining(true);
-      joined = false;
-
-      const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'join', roomCode, name }));
-      };
-
-      ws.onmessage = (event) => {
-        let msg;
-        try {
-          msg = JSON.parse(event.data);
-        } catch {
-          handleJoinFailure('Ungültige Server-Antwort.');
-          return;
-        }
-
-        if (msg.type === 'joined') {
-          joined = true;
-          playerId = msg.playerId;
-          slot = msg.slot;
-          setJoining(false);
-          showControlScreen();
-          startInputLoop();
-        } else if (msg.type === 'error') {
-          handleJoinFailure(msg.message || 'Beitritt fehlgeschlagen.');
-        }
-      };
-
-      ws.onerror = () => {
-        if (!joined) {
-          handleJoinFailure('Verbindung fehlgeschlagen.');
-        }
-      };
-
-      ws.onclose = () => {
-        stopInputLoop();
-        if (!joined) {
-          handleJoinFailure('Verbindung getrennt.');
-        }
-      };
-    });
 
     const MAX_TILT = 45;
     let controlsInitialized = false;
