@@ -15,14 +15,21 @@ export function getViewportRects(playerCount, cw, ch) {
 
   const halfW = cw / 2;
   const halfH = ch / 2;
-  const grid = [
+
+  if (playerCount === 3) {
+    return [
+      { x: 0, y: halfH, w: halfW, h: halfH },
+      { x: halfW, y: halfH, w: halfW, h: halfH },
+      { x: 0, y: 0, w: cw, h: halfH },
+    ];
+  }
+
+  return [
     { x: 0, y: 0, w: halfW, h: halfH },
     { x: halfW, y: 0, w: halfW, h: halfH },
     { x: 0, y: halfH, w: halfW, h: halfH },
     { x: halfW, y: halfH, w: halfW, h: halfH },
   ];
-
-  return grid.slice(0, playerCount);
 }
 
 export function getFollowCameraTransform(car, rect, dpr, viewSize = CAMERA_VIEW_SIZE) {

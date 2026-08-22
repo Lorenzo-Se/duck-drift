@@ -23,86 +23,9 @@
       font-family: system-ui, sans-serif;
     }
 
-    #join-screen[hidden],
-    #control-screen[hidden] {
+    #control-screen[hidden],
+    #rotate-screen[hidden] {
       display: none !important;
-    }
-
-    #join-screen {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      padding: 24px;
-      box-sizing: border-box;
-      touch-action: manipulation;
-    }
-
-    #join-screen h1 {
-      margin: 0 0 32px;
-      font-size: 1.75rem;
-    }
-
-    #join-form {
-      width: 100%;
-      max-width: 320px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    #join-form label {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      font-size: 0.9rem;
-      font-weight: 600;
-    }
-
-    #join-form input {
-      padding: 14px 16px;
-      border: none;
-      border-radius: 8px;
-      font-size: 1.25rem;
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      touch-action: manipulation;
-    }
-
-    #join-form input::placeholder {
-      color: rgba(255, 255, 255, 0.4);
-    }
-
-    #room-code {
-      text-align: center;
-      letter-spacing: 0.3em;
-      font-variant-numeric: tabular-nums;
-    }
-
-    #join-btn {
-      margin-top: 8px;
-      padding: 16px;
-      border: none;
-      border-radius: 8px;
-      background: #3498db;
-      color: #fff;
-      font-size: 1.1rem;
-      font-weight: bold;
-      touch-action: manipulation;
-      cursor: pointer;
-    }
-
-    #join-btn:disabled {
-      background: #555;
-      cursor: not-allowed;
-    }
-
-    #join-error {
-      min-height: 1.25rem;
-      color: #e74c3c;
-      font-size: 0.9rem;
-      text-align: center;
     }
 
     .control-btn {
@@ -142,69 +65,109 @@
       background: #27ae60;
     }
 
-    #enable-steering {
+    #rotate-screen {
       position: fixed;
-      top: 16px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      padding: 12px 24px;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+      background: #1a1a2e;
+      touch-action: manipulation;
+    }
+
+    #rotate-content {
+      text-align: center;
+      max-width: 320px;
+    }
+
+    #rotate-icon {
+      font-size: 4rem;
+      margin-bottom: 24px;
+      line-height: 1;
+    }
+
+    #rotate-title {
+      margin: 0 0 12px;
+      font-size: 1.35rem;
+    }
+
+    #rotate-error {
+      margin: 0 0 16px;
+      color: #e74c3c;
+      font-size: 0.9rem;
+    }
+
+    #rotate-error[hidden],
+    #rotate-hint[hidden] {
+      display: none;
+    }
+
+    #rotate-hint {
+      margin: 0 0 16px;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.85rem;
+      line-height: 1.4;
+    }
+
+    #rotate-start-btn {
+      margin-top: 8px;
+      padding: 16px 32px;
       border: none;
       border-radius: 8px;
       background: #3498db;
       color: #fff;
-      font-size: 1rem;
+      font-size: 1.1rem;
       font-weight: bold;
       touch-action: manipulation;
       cursor: pointer;
     }
 
-    #steering-debug {
+    #rotate-start-btn[hidden] {
+      display: none;
+    }
+
+    #game-start-flash {
       position: fixed;
-      top: 16px;
-      left: 16px;
-      z-index: 10;
-      padding: 8px 12px;
-      border-radius: 6px;
-      background: rgba(0, 0, 0, 0.6);
-      color: #0f0;
-      font-family: monospace;
-      font-size: 0.875rem;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(46, 204, 113, 0.85);
+      font-size: 3rem;
+      font-weight: bold;
+      color: #fff;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease-out;
+    }
+
+    #game-start-flash.visible {
+      opacity: 1;
     }
   </style>
 </head>
 <body>
-  <div id="join-screen">
-    <h1>Duck Drift</h1>
-    <form id="join-form">
-      <label>
-        Raumcode
-        <input id="room-code" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" autocomplete="off" required>
-      </label>
-      <label>
-        Name
-        <input id="player-name" type="text" maxlength="20" placeholder="Dein Name" autocomplete="nickname" required>
-      </label>
-      <p id="join-error" aria-live="polite"></p>
-      <button type="submit" id="join-btn">Beitreten</button>
-    </form>
-  </div>
-
   <div id="control-screen" hidden>
-    <button id="enable-steering">Steuerung aktivieren</button>
-    <div id="steering-debug">steering: 0.00</div>
-    <button class="control-btn brake" id="brake">Bremse</button>
-    <button class="control-btn gas" id="gas">Gas</button>
+    <div id="rotate-screen">
+      <div id="rotate-content">
+        <div id="rotate-icon" aria-hidden="true">↺</div>
+        <h2 id="rotate-title">Bitte Handy ins Querformat drehen</h2>
+        <p id="rotate-hint" hidden></p>
+        <p id="rotate-error" hidden aria-live="polite"></p>
+        <button type="button" id="rotate-start-btn" hidden>Tippen zum Starten</button>
+      </div>
+    </div>
+    <button class="control-btn brake" id="brake" hidden>Bremse</button>
+    <button class="control-btn gas" id="gas" hidden>Gas</button>
   </div>
+  <div id="game-start-flash" hidden aria-hidden="true">Los!</div>
 
   <script>
-    const joinScreen = document.getElementById('join-screen');
     const controlScreen = document.getElementById('control-screen');
-    const joinForm = document.getElementById('join-form');
-    const roomCodeInput = document.getElementById('room-code');
-    const playerNameInput = document.getElementById('player-name');
-    const joinBtn = document.getElementById('join-btn');
-    const joinError = document.getElementById('join-error');
 
     let ws = null;
     let joined = false;
@@ -214,26 +177,28 @@
 
     const state = { brake: false, gas: false, steering: 0 };
 
-    const roomFromUrl = new URLSearchParams(location.search).get('room');
-    if (roomFromUrl && /^\d{4}$/.test(roomFromUrl)) {
-      roomCodeInput.value = roomFromUrl;
+    const params = new URLSearchParams(location.search);
+    const roomCode = params.get('room')?.trim() ?? '';
+    const name = params.get('name')?.trim() ?? '';
+
+    if (!/^\d{4}$/.test(roomCode) || !name) {
+      location.replace('/');
+      throw new Error('Missing join parameters');
     }
 
-    function showError(message) {
-      joinError.textContent = message;
-    }
-
-    function setJoining(joining) {
-      joinBtn.disabled = joining;
-      joinBtn.textContent = joining ? 'Verbinde…' : 'Beitreten';
-      roomCodeInput.disabled = joining;
-      playerNameInput.disabled = joining;
+    function redirectWithError(message) {
+      const url = new URL('/', location.origin);
+      url.searchParams.set('error', message);
+      if (/^\d{4}$/.test(roomCode)) {
+        url.searchParams.set('room', roomCode);
+      }
+      location.replace(url.toString());
     }
 
     function showControlScreen() {
-      joinScreen.hidden = true;
       controlScreen.hidden = false;
       initControls();
+      startLandscapeWatch();
     }
 
     function sendInput() {
@@ -267,33 +232,10 @@
         ws.close();
         ws = null;
       }
-      setJoining(false);
-      showError(message);
+      redirectWithError(message);
     }
 
-    joinForm.addEventListener('submit', (e) => {
-      e.preventDefault();
-      showError('');
-
-      const roomCode = roomCodeInput.value.trim();
-      const name = playerNameInput.value.trim();
-
-      if (!/^\d{4}$/.test(roomCode)) {
-        showError('Raumcode muss 4 Ziffern haben.');
-        return;
-      }
-      if (!name) {
-        showError('Bitte einen Namen eingeben.');
-        return;
-      }
-
-      if (ws) {
-        stopInputLoop();
-        ws.close();
-        ws = null;
-      }
-
-      setJoining(true);
+    function connectAndJoin() {
       joined = false;
 
       const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
@@ -316,9 +258,10 @@
           joined = true;
           playerId = msg.playerId;
           slot = msg.slot;
-          setJoining(false);
           showControlScreen();
           startInputLoop();
+        } else if (msg.type === 'broadcast' && msg.event === 'gameStart') {
+          showGameStartFlash();
         } else if (msg.type === 'error') {
           handleJoinFailure(msg.message || 'Beitritt fehlgeschlagen.');
         }
@@ -336,51 +279,200 @@
           handleJoinFailure('Verbindung getrennt.');
         }
       };
-    });
+    }
+
+    connectAndJoin();
+
+    const gameStartFlash = document.getElementById('game-start-flash');
+    let gameStartFlashTimeout = null;
+
+    function showGameStartFlash() {
+      gameStartFlash.hidden = false;
+      gameStartFlash.classList.add('visible');
+      if (gameStartFlashTimeout !== null) {
+        clearTimeout(gameStartFlashTimeout);
+      }
+      gameStartFlashTimeout = setTimeout(() => {
+        gameStartFlash.classList.remove('visible');
+        gameStartFlash.hidden = true;
+        gameStartFlashTimeout = null;
+      }, 1200);
+    }
+
+    function isIos() {
+      return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    }
+
+    async function lockScreenOrientation() {
+      if (isIos()) return false;
+
+      const orientation = screen.orientation;
+      if (!orientation?.lock) return false;
+
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          try {
+            await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+          } catch {
+            // Fullscreen optional – lock may still work
+          }
+        }
+
+        const type = orientation.type?.startsWith('landscape')
+          ? orientation.type
+          : 'landscape';
+        await orientation.lock(type);
+        return true;
+      } catch (err) {
+        console.warn('Orientation lock failed:', err);
+        return false;
+      }
+    }
+
+    function updateIosRotateHint() {
+      if (!isIos()) {
+        rotateHint.hidden = true;
+        return;
+      }
+      rotateHint.innerHTML = 'Tipp: Aktiviere die <strong>Rotationssperre</strong> in der Kontrollzentrale (Schloss-Symbol), damit sich der Bildschirm beim Lenken nicht dreht.';
+      rotateHint.hidden = false;
+    }
+
+    function pauseControlsForPortrait() {
+      rotateScreen.hidden = false;
+      brakeBtn.hidden = true;
+      gasBtn.hidden = true;
+      state.steering = 0;
+      state.gas = false;
+      state.brake = false;
+      brakeBtn.classList.remove('active');
+      gasBtn.classList.remove('active');
+      neutralBeta = null;
+    }
+
+    function resumeControlsInLandscape() {
+      rotateScreen.hidden = true;
+      rotateError.hidden = true;
+      rotateHint.hidden = true;
+      brakeBtn.hidden = false;
+      gasBtn.hidden = false;
+      neutralBeta = null;
+    }
+
+    function isLandscape() {
+      return window.matchMedia('(orientation: landscape)').matches
+        || screen.orientation?.type?.startsWith('landscape');
+    }
 
     const MAX_TILT = 45;
     let controlsInitialized = false;
+    let steeringStarted = false;
+    let neutralBeta = null;
+    let landscapeWatchStarted = false;
+
+    const rotateScreen = document.getElementById('rotate-screen');
+    const rotateTitle = document.getElementById('rotate-title');
+    const rotateHint = document.getElementById('rotate-hint');
+    const rotateError = document.getElementById('rotate-error');
+    const rotateStartBtn = document.getElementById('rotate-start-btn');
+    const brakeBtn = document.getElementById('brake');
+    const gasBtn = document.getElementById('gas');
+
+    function normalizeBeta(beta) {
+      if (beta == null || neutralBeta == null) return 0;
+      const tilt = beta - neutralBeta;
+      return Math.max(-1, Math.min(1, tilt / MAX_TILT));
+    }
+
+    function handleOrientation(event) {
+      if (neutralBeta === null && event.beta != null) {
+        neutralBeta = event.beta;
+      }
+      state.steering = normalizeBeta(event.beta);
+    }
+
+    async function startSteering() {
+      if (steeringStarted) return;
+
+      try {
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          const permission = await DeviceOrientationEvent.requestPermission();
+          if (permission !== 'granted') {
+            rotateError.textContent = 'Berechtigung verweigert – bitte erneut tippen';
+            rotateError.hidden = false;
+            return;
+          }
+        }
+
+        steeringStarted = true;
+        await lockScreenOrientation();
+        neutralBeta = null;
+        window.addEventListener('deviceorientation', handleOrientation, true);
+        rotateScreen.hidden = true;
+        rotateHint.hidden = true;
+        rotateError.hidden = true;
+        brakeBtn.hidden = false;
+        gasBtn.hidden = false;
+      } catch {
+        steeringStarted = false;
+        rotateError.textContent = 'Fehler – bitte erneut tippen';
+        rotateError.hidden = false;
+      }
+    }
+
+    function onLandscapeCheck() {
+      if (!isLandscape()) {
+        rotateTitle.textContent = steeringStarted
+          ? 'Bitte zurück ins Querformat drehen'
+          : 'Bitte Handy ins Querformat drehen';
+        rotateStartBtn.hidden = true;
+        rotateError.hidden = true;
+        updateIosRotateHint();
+
+        if (steeringStarted) {
+          pauseControlsForPortrait();
+        }
+        return;
+      }
+
+      rotateError.hidden = true;
+
+      if (steeringStarted) {
+        resumeControlsInLandscape();
+        return;
+      }
+
+      rotateHint.hidden = true;
+
+      if (isIos()) {
+        rotateTitle.textContent = 'Querformat erkannt';
+        rotateStartBtn.hidden = false;
+        updateIosRotateHint();
+      } else {
+        rotateTitle.textContent = 'Steuerung wird gestartet…';
+        rotateStartBtn.hidden = true;
+        rotateHint.hidden = true;
+        startSteering();
+      }
+    }
+
+    function startLandscapeWatch() {
+      if (landscapeWatchStarted) {
+        onLandscapeCheck();
+        return;
+      }
+      landscapeWatchStarted = true;
+
+      rotateScreen.hidden = false;
+      rotateStartBtn.addEventListener('click', startSteering);
+      window.addEventListener('orientationchange', onLandscapeCheck);
+      window.addEventListener('resize', onLandscapeCheck);
+      onLandscapeCheck();
+    }
 
     function initControls() {
       if (controlsInitialized) return;
       controlsInitialized = true;
-
-      const enableBtn = document.getElementById('enable-steering');
-      const debugEl = document.getElementById('steering-debug');
-      let neutralBeta = null;
-
-      function normalizeBeta(beta) {
-        if (beta == null || neutralBeta == null) return 0;
-        const tilt = beta - neutralBeta;
-        return Math.max(-1, Math.min(1, tilt / MAX_TILT));
-      }
-
-      function handleOrientation(event) {
-        if (neutralBeta === null && event.beta != null) {
-          neutralBeta = event.beta;
-        }
-        state.steering = normalizeBeta(event.beta);
-        debugEl.textContent = `steering: ${state.steering.toFixed(2)} (β: ${event.beta?.toFixed(1) ?? '–'})`;
-      }
-
-      async function enableSteering() {
-        try {
-          if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-            const permission = await DeviceOrientationEvent.requestPermission();
-            if (permission !== 'granted') {
-              enableBtn.textContent = 'Berechtigung verweigert';
-              return;
-            }
-          }
-          neutralBeta = null;
-          window.addEventListener('deviceorientation', handleOrientation, true);
-          enableBtn.hidden = true;
-        } catch {
-          enableBtn.textContent = 'Fehler – erneut versuchen';
-        }
-      }
-
-      enableBtn.addEventListener('click', enableSteering);
 
       function bindControl(button, key) {
         function press(e) {
@@ -404,8 +496,8 @@
         button.addEventListener('pointerleave', release);
       }
 
-      bindControl(document.getElementById('brake'), 'brake');
-      bindControl(document.getElementById('gas'), 'gas');
+      bindControl(brakeBtn, 'brake');
+      bindControl(gasBtn, 'gas');
     }
   </script>
 </body>
