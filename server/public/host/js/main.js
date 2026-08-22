@@ -41,6 +41,7 @@ let gamePhase = 'lobby';
 let ws = null;
 let roomCode = null;
 const players = new Map();
+const pendingPlayers = new Map();
 
 function getTrackCenter() {
   return {
@@ -88,29 +89,32 @@ function resetAllCars() {
 }
 
 function updateLobbyUI() {
-  const count = players.size;
+  const count = players.size + pendingPlayers.size;
   playerCountEl.textContent = `${count} / 4 Spieler`;
 
   if (count === 0) {
     playerListEl.textContent = 'Warte auf Spieler…';
   } else {
-    const names = [...players.values()]
+    const names = [
+      ...[...players.values()].map((p) => ({ slot: p.slot, name: p.name })),
+      ...[...pendingPlayers.values()].map((p) => ({ slot: p.slot, name: p.name })),
+    ]
       .sort((a, b) => a.slot - b.slot)
       .map((p) => p.name);
     playerListEl.textContent = names.join(' · ');
   }
 
-  startBtn.disabled = count < 2;
+  startBtn.disabled = players.size < 2;
 }
 
-function spawnPlayerCar(playerId, name, slot) {
+function spawnPlayerCar(playerId, name, slot, color) {
   if (!trackReady || players.has(playerId)) {
     return;
   }
 
   const spawn = getSpawnPosition(slot);
-  const color = SLOT_COLORS[slot] ?? '#ffffff';
-  const car = new Car(spawn.x, spawn.y, spawn.angle, color);
+  const carColor = color ?? SLOT_COLORS[slot] ?? '#ffffff';
+  const car = new Car(spawn.x, spawn.y, spawn.angle, carColor);
 
   players.set(playerId, { car, slot, name });
   syncCarsFromPlayers();
@@ -118,7 +122,10 @@ function spawnPlayerCar(playerId, name, slot) {
 }
 
 function removePlayer(playerId) {
+  pendingPlayers.delete(playerId);
+
   if (!players.has(playerId)) {
+    updateLobbyUI();
     return;
   }
 
@@ -163,8 +170,18 @@ function handleServerMessage(msg) {
       renderQrCode();
       break;
     case 'playerJoined':
-      spawnPlayerCar(msg.playerId, msg.name, msg.slot);
+      pendingPlayers.set(msg.playerId, { name: msg.name, slot: msg.slot });
+      updateLobbyUI();
       break;
+    case 'playerCarSelected': {
+      const pending = pendingPlayers.get(msg.playerId);
+      if (!pending) {
+        return;
+      }
+      pendingPlayers.delete(msg.playerId);
+      spawnPlayerCar(msg.playerId, pending.name, pending.slot, msg.color);
+      break;
+    }
     case 'playerInput': {
       const player = players.get(msg.playerId);
       if (!player) {

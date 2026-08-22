@@ -23,9 +23,100 @@
       font-family: system-ui, sans-serif;
     }
 
+    #car-select-screen[hidden],
     #control-screen[hidden],
     #rotate-screen[hidden] {
       display: none !important;
+    }
+
+    #car-select-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 24px 0;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+
+    #car-select-screen h1 {
+      margin: 0 0 8px;
+      font-size: 1.5rem;
+    }
+
+    #car-select-hint {
+      margin: 0 0 24px;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.9rem;
+    }
+
+    .carousel-wrap {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+    }
+
+    .carousel-arrow {
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      font-size: 1.25rem;
+      cursor: pointer;
+      touch-action: manipulation;
+      z-index: 1;
+    }
+
+    .carousel-track {
+      display: flex;
+      flex: 1;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      gap: 16px;
+      padding: 16px 25vw;
+      scrollbar-width: none;
+      touch-action: pan-x;
+    }
+
+    .carousel-track::-webkit-scrollbar {
+      display: none;
+    }
+
+    .carousel-card {
+      flex: 0 0 50vw;
+      max-width: 200px;
+      scroll-snap-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 20px 12px;
+      border: 2px solid transparent;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.06);
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .carousel-card:active {
+      transform: scale(0.97);
+    }
+
+    .carousel-card canvas {
+      display: block;
+    }
+
+    .carousel-card-label {
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-align: center;
     }
 
     .control-btn {
@@ -151,6 +242,16 @@
   </style>
 </head>
 <body>
+  <div id="car-select-screen" hidden>
+    <h1>Wähle dein Auto</h1>
+    <p id="car-select-hint">Wische und tippe zum Auswählen</p>
+    <div class="carousel-wrap">
+      <button type="button" class="carousel-arrow" id="carousel-prev" aria-label="Vorheriges Auto">‹</button>
+      <div class="carousel-track" id="carousel-track"></div>
+      <button type="button" class="carousel-arrow" id="carousel-next" aria-label="Nächstes Auto">›</button>
+    </div>
+  </div>
+
   <div id="control-screen" hidden>
     <div id="rotate-screen">
       <div id="rotate-content">
@@ -167,10 +268,24 @@
   <div id="game-start-flash" hidden aria-hidden="true">Los!</div>
 
   <script>
+    const carSelectScreen = document.getElementById('car-select-screen');
+    const carouselTrack = document.getElementById('carousel-track');
+    const carouselPrev = document.getElementById('carousel-prev');
+    const carouselNext = document.getElementById('carousel-next');
     const controlScreen = document.getElementById('control-screen');
+
+    const CAR_PRESETS = [
+      { id: 'red', color: '#ff3333', label: 'Roter Bolide' },
+      { id: 'blue', color: '#3366ff', label: 'Blauer Blitz' },
+      { id: 'green', color: '#33cc33', label: 'Grüner Racer' },
+      { id: 'yellow', color: '#ffcc00', label: 'Gelber Flitzer' },
+      { id: 'purple', color: '#aa44ff', label: 'Lila Turbo' },
+      { id: 'orange', color: '#ff8833', label: 'Oranger Drift' },
+    ];
 
     let ws = null;
     let joined = false;
+    let carSelected = false;
     let playerId = null;
     let slot = null;
     let inputIntervalId = null;
@@ -193,6 +308,70 @@
         url.searchParams.set('room', roomCode);
       }
       location.replace(url.toString());
+    }
+
+    function drawCarPreview(canvas, color) {
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.scale(3, 3);
+      ctx.fillStyle = color;
+      ctx.fillRect(-12, -6, 24, 12);
+      ctx.fillStyle = '#ffcc00';
+      ctx.fillRect(8, -4, 6, 8);
+      ctx.restore();
+    }
+
+    function buildCarousel() {
+      carouselTrack.innerHTML = '';
+      for (const preset of CAR_PRESETS) {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'carousel-card';
+        card.dataset.color = preset.color;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 120;
+        canvas.height = 60;
+        drawCarPreview(canvas, preset.color);
+
+        const label = document.createElement('span');
+        label.className = 'carousel-card-label';
+        label.textContent = preset.label;
+
+        card.appendChild(canvas);
+        card.appendChild(label);
+        card.addEventListener('click', () => selectCar(preset.color));
+        carouselTrack.appendChild(card);
+      }
+    }
+
+    function scrollCarousel(direction) {
+      const card = carouselTrack.querySelector('.carousel-card');
+      if (!card) return;
+      const scrollAmount = card.offsetWidth + 16;
+      carouselTrack.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+    }
+
+    carouselPrev.addEventListener('click', () => scrollCarousel(-1));
+    carouselNext.addEventListener('click', () => scrollCarousel(1));
+
+    function showCarSelectScreen() {
+      buildCarousel();
+      carSelectScreen.hidden = false;
+    }
+
+    function selectCar(color) {
+      if (carSelected || !joined || !ws || ws.readyState !== WebSocket.OPEN) return;
+      carSelected = true;
+
+      ws.send(JSON.stringify({ type: 'selectCar', target: 'host', color }));
+      carSelectScreen.hidden = true;
+      showControlScreen();
+      startInputLoop();
     }
 
     function showControlScreen() {
@@ -258,8 +437,7 @@
           joined = true;
           playerId = msg.playerId;
           slot = msg.slot;
-          showControlScreen();
-          startInputLoop();
+          showCarSelectScreen();
         } else if (msg.type === 'broadcast' && msg.event === 'gameStart') {
           showGameStartFlash();
         } else if (msg.type === 'error') {

@@ -62,8 +62,13 @@ function relayToHost(ws, message, room) {
     return;
   }
 
+  if (message.type === 'selectCar') {
+    send(room.host, { type: 'playerCarSelected', playerId: ws.playerId, color: message.color });
+    return;
+  }
+
   if (message.type !== 'input') {
-    send(ws, { type: 'error', message: 'Only input messages can be sent to host' });
+    send(ws, { type: 'error', message: 'Only input and selectCar messages can be sent to host' });
     return;
   }
 
