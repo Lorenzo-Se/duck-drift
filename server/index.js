@@ -42,6 +42,53 @@ function findFreeSlot(room) {
   return null;
 }
 
+function getRoom(ws) {
+  return ws.roomCode ? rooms.get(ws.roomCode) : null;
+}
+
+function relayToHost(ws, message, room) {
+  if (ws.role !== 'phone') {
+    send(ws, { type: 'error', message: 'Only phones can send to host' });
+    return;
+  }
+
+  if (message.type !== 'input') {
+    send(ws, { type: 'error', message: 'Only input messages can be sent to host' });
+    return;
+  }
+
+  const { type, target, ...rest } = message;
+  send(room.host, { type: 'playerInput', playerId: ws.playerId, ...rest });
+}
+
+function relayToPhones(ws, message, room) {
+  if (ws.role !== 'host') {
+    send(ws, { type: 'error', message: 'Only host can send to phones' });
+    return;
+  }
+
+  const { target, ...payload } = message;
+  room.phones.forEach(({ ws: phoneWs }) => {
+    send(phoneWs, payload);
+  });
+}
+
+function handleRelay(ws, message) {
+  const room = getRoom(ws);
+  if (!room) {
+    send(ws, { type: 'error', message: 'Not in a room' });
+    return;
+  }
+
+  if (message.target === 'host') {
+    relayToHost(ws, message, room);
+  } else if (message.target === 'phones') {
+    relayToPhones(ws, message, room);
+  } else {
+    send(ws, { type: 'error', message: 'Unknown message type' });
+  }
+}
+
 function handleCreateRoom(ws) {
   if (ws.roomCode) {
     send(ws, { type: 'error', message: 'Already in a room' });
@@ -99,7 +146,7 @@ function handleMessage(ws, message) {
       handleJoin(ws, message);
       break;
     default:
-      send(ws, { type: 'error', message: 'Unknown message type' });
+      handleRelay(ws, message);
   }
 }
 
