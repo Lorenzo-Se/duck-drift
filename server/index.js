@@ -83,6 +83,9 @@ function relayToPhones(ws, message, room) {
   }
 
   const { target, ...payload } = message;
+  if (payload.event === 'gameStart') {
+    room.started = true;
+  }
   room.phones.forEach(({ ws: phoneWs }) => {
     send(phoneWs, payload);
   });
@@ -111,7 +114,7 @@ function handleCreateRoom(ws) {
   }
 
   const roomCode = generateRoomCode();
-  rooms.set(roomCode, { host: ws, phones: new Map() });
+  rooms.set(roomCode, { host: ws, phones: new Map(), started: false });
 
   ws.role = 'host';
   ws.roomCode = roomCode;
@@ -131,6 +134,11 @@ function handleJoin(ws, message) {
   const room = rooms.get(roomCode);
   if (!room) {
     send(ws, { type: 'error', message: 'Room not found' });
+    return;
+  }
+
+  if (room.started) {
+    send(ws, { type: 'error', message: 'Spiel bereits gestartet' });
     return;
   }
 
