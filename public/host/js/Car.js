@@ -8,10 +8,11 @@ const WALL_BOUNCE = 0.35;
 const WALL_SPEED_LOSS = 0.5;
 
 export class Car {
-  constructor(x, y, angle = 0) {
+  constructor(x, y, angle = 0, color = '#ff3333') {
     this.x = x;
     this.y = y;
     this.angle = angle;
+    this.color = color;
     this.vx = 0;
     this.vy = 0;
     this.steering = 0;
@@ -131,7 +132,7 @@ export class Car {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.fillStyle = '#ff3333';
+    ctx.fillStyle = this.color;
     ctx.fillRect(-12, -6, 24, 12);
     ctx.fillStyle = '#ffcc00';
     ctx.fillRect(8, -4, 6, 8);

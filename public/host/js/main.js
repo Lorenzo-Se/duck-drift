@@ -1,4 +1,5 @@
 import { Car } from './Car.js';
+import { resolveCarCollisions } from './CarCollisions.js';
 import { TrackMask } from './TrackMask.js';
 
 const canvas = document.getElementById('game');
@@ -14,7 +15,7 @@ maskImg.src = 'assets/tracks/silverstone_mask.png';
 const keys = new Set();
 
 document.addEventListener('keydown', (e) => {
-  if (e.code.startsWith('Arrow')) {
+  if (e.code.startsWith('Arrow') || e.code.startsWith('Key')) {
     e.preventDefault();
     keys.add(e.code);
   }
@@ -24,7 +25,7 @@ document.addEventListener('keyup', (e) => {
   keys.delete(e.code);
 });
 
-let car;
+let cars = [];
 let trackMask;
 
 function getTrackTransform(cw, ch, img) {
@@ -36,10 +37,16 @@ function getTrackTransform(cw, ch, img) {
   return { scale, dx, dy };
 }
 
-function applyKeyboardInput(car) {
-  car.throttle = keys.has('ArrowUp');
-  car.brake = keys.has('ArrowDown');
-  car.steering = (keys.has('ArrowLeft') ? -1 : 0) + (keys.has('ArrowRight') ? 1 : 0);
+function applyKeyboardInput(car, index) {
+  if (index === 0) {
+    car.throttle = keys.has('ArrowUp');
+    car.brake = keys.has('ArrowDown');
+    car.steering = (keys.has('ArrowLeft') ? -1 : 0) + (keys.has('ArrowRight') ? 1 : 0);
+  } else if (index === 1) {
+    car.throttle = keys.has('KeyW');
+    car.brake = keys.has('KeyS');
+    car.steering = (keys.has('KeyA') ? -1 : 0) + (keys.has('KeyD') ? 1 : 0);
+  }
 }
 
 function drawFrame() {
@@ -52,7 +59,9 @@ function drawFrame() {
 
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * dx, dpr * dy);
   ctx.drawImage(trackImg, 0, 0);
-  car.draw(ctx);
+  for (const car of cars) {
+    car.draw(ctx);
+  }
 }
 
 let lastTime = 0;
@@ -67,9 +76,10 @@ function loop(time) {
   const dt = Math.min((time - lastTime) / 1000, 0.05);
   lastTime = time;
 
-  if (car) {
-    applyKeyboardInput(car);
-    car.update(dt, trackMask);
+  if (cars.length > 0) {
+    cars.forEach((car, index) => applyKeyboardInput(car, index));
+    cars.forEach((car) => car.update(dt, trackMask));
+    resolveCarCollisions(cars, trackMask);
     drawFrame();
   }
 
@@ -79,7 +89,7 @@ function loop(time) {
 function resizeCanvas() {
   canvas.width = window.innerWidth * dpr;
   canvas.height = window.innerHeight * dpr;
-  if (car) drawFrame();
+  if (cars.length > 0) drawFrame();
 }
 
 function tryStartGame() {
@@ -88,7 +98,12 @@ function tryStartGame() {
   }
 
   trackMask = new TrackMask(maskImg);
-  car = new Car(trackImg.naturalWidth / 2, trackImg.naturalHeight / 2);
+  const cx = trackImg.naturalWidth / 2;
+  const cy = trackImg.naturalHeight / 2;
+  cars = [
+    new Car(cx - 30, cy, 0, '#ff3333'),
+    new Car(cx + 30, cy, Math.PI, '#3366ff'),
+  ];
   resizeCanvas();
 }
 
