@@ -7,7 +7,7 @@ import {
   drawScene,
   drawViewportDividers,
   getFollowCameraTransform,
-  getMapOverscroll,
+  getMapGreenPadding,
   getViewportRects,
 } from './viewports.js';
 
@@ -301,7 +301,7 @@ function drawFrame() {
     ctx.rect(rect.x, rect.y, rect.w, rect.h);
     ctx.clip();
     ctx.setTransform(...getFollowCameraTransform(car, rect, dpr, CAMERA_VIEW_SIZE));
-    const padding = getMapOverscroll(rect, CAMERA_VIEW_SIZE);
+    const padding = getMapGreenPadding(rect, CAMERA_VIEW_SIZE);
     drawScene(ctx, trackImg, cars, padding);
     ctx.restore();
   }

@@ -32,9 +32,15 @@ export function getViewportRects(playerCount, cw, ch) {
   ];
 }
 
+export const MAP_GREEN_PADDING_MULTIPLIER = 2;
+
 export function getMapOverscroll(rect, viewSize = CAMERA_VIEW_SIZE) {
   const aspect = Math.max(rect.w, rect.h) / Math.min(rect.w, rect.h);
   return (viewSize * aspect) / 2;
+}
+
+export function getMapGreenPadding(rect, viewSize = CAMERA_VIEW_SIZE) {
+  return getMapOverscroll(rect, viewSize) * MAP_GREEN_PADDING_MULTIPLIER;
 }
 
 export function getFollowCameraTransform(car, rect, dpr, viewSize = CAMERA_VIEW_SIZE) {
