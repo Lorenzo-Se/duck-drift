@@ -2,11 +2,13 @@ import { Car } from './Car.js';
 import { resolveCarCollisions } from './CarCollisions.js';
 import { TrackMask } from './TrackMask.js';
 import { drawQrCode } from './qrcode.js';
+import { getTrackById, TRACKS } from './tracks.js';
 import {
   CAMERA_VIEW_SIZE,
   drawScene,
   drawViewportDividers,
   getFollowCameraTransform,
+  getMapGreenPadding,
   getViewportRects,
 } from './viewports.js';
 
@@ -21,6 +23,9 @@ const qrCanvasLarge = document.getElementById('qr-code-large');
 const playerListEl = document.getElementById('player-list');
 const playerCountEl = document.getElementById('player-count');
 const startBtn = document.getElementById('start-btn');
+const mapSelectEl = document.getElementById('map-select');
+const roundsInputEl = document.getElementById('rounds-input');
+const lobbyConfigSummaryEl = document.getElementById('lobby-config-summary');
 
 const SLOT_COLORS = ['#ff3333', '#3366ff', '#33cc33', '#ffcc00'];
 const SLOT_OFFSETS = [
@@ -31,10 +36,9 @@ const SLOT_OFFSETS = [
 ];
 
 const trackImg = new Image();
-trackImg.src = 'assets/tracks/silverstone_texture.png';
-
 const maskImg = new Image();
-maskImg.src = 'assets/tracks/silverstone_mask.png';
+
+let lobbyConfig = { mapId: TRACKS[0].id, totalRounds: 3 };
 
 let cars = [];
 let trackMask;
@@ -44,6 +48,108 @@ let ws = null;
 let roomCode = null;
 const players = new Map();
 const pendingPlayers = new Map();
+
+function getSelectedTrack() {
+  return getTrackById(lobbyConfig.mapId);
+}
+
+function updateLobbyConfigSummary() {
+  const track = getSelectedTrack();
+  const roundsLabel = lobbyConfig.totalRounds === 1 ? 'Runde' : 'Runden';
+  lobbyConfigSummaryEl.textContent = `${track.name} · ${lobbyConfig.totalRounds} ${roundsLabel}`;
+}
+
+function setLobbySettingsEnabled(enabled) {
+  mapSelectEl.disabled = !enabled;
+  roundsInputEl.disabled = !enabled;
+}
+
+function updateStartButtonState() {
+  startBtn.disabled = !trackReady || players.size < 2 || gamePhase !== 'lobby';
+}
+
+function populateMapSelect() {
+  mapSelectEl.innerHTML = '';
+  for (const track of TRACKS) {
+    const option = document.createElement('option');
+    option.value = track.id;
+    option.textContent = track.name;
+    mapSelectEl.appendChild(option);
+  }
+  mapSelectEl.value = lobbyConfig.mapId;
+}
+
+function loadTrack(mapId) {
+  const track = getTrackById(mapId);
+  lobbyConfig.mapId = track.id;
+  trackReady = false;
+  updateStartButtonState();
+
+  let textureLoaded = false;
+  let maskLoaded = false;
+
+  function tryFinishTrackLoad() {
+    if (!textureLoaded || !maskLoaded) {
+      return;
+    }
+
+    trackMask = new TrackMask(maskImg);
+    trackReady = true;
+
+    for (const playerId of players.keys()) {
+      resetPlayerCar(playerId);
+    }
+
+    resizeCanvas();
+    updateStartButtonState();
+  }
+
+  trackImg.onload = () => {
+    textureLoaded = true;
+    tryFinishTrackLoad();
+  };
+
+  maskImg.onload = () => {
+    maskLoaded = true;
+    tryFinishTrackLoad();
+  };
+
+  trackImg.src = track.texture;
+  maskImg.src = track.mask;
+
+  if (trackImg.complete) {
+    textureLoaded = true;
+  }
+  if (maskImg.complete) {
+    maskLoaded = true;
+  }
+  tryFinishTrackLoad();
+}
+
+function handleMapChange() {
+  if (gamePhase !== 'lobby' || mapSelectEl.value === lobbyConfig.mapId) {
+    return;
+  }
+
+  loadTrack(mapSelectEl.value);
+  updateLobbyConfigSummary();
+}
+
+function handleRoundsChange() {
+  if (gamePhase !== 'lobby') {
+    return;
+  }
+
+  const rounds = Number.parseInt(roundsInputEl.value, 10);
+  if (!Number.isFinite(rounds)) {
+    roundsInputEl.value = String(lobbyConfig.totalRounds);
+    return;
+  }
+
+  lobbyConfig.totalRounds = Math.min(99, Math.max(1, rounds));
+  roundsInputEl.value = String(lobbyConfig.totalRounds);
+  updateLobbyConfigSummary();
+}
 
 function getTrackCenter() {
   return {
@@ -106,7 +212,8 @@ function updateLobbyUI() {
     playerListEl.textContent = names.join(' · ');
   }
 
-  startBtn.disabled = players.size < 2;
+  updateLobbyConfigSummary();
+  updateStartButtonState();
 }
 
 function spawnPlayerCar(playerId, name, slot, color) {
@@ -137,20 +244,26 @@ function removePlayer(playerId) {
 }
 
 function startGame() {
-  if (players.size < 2 || gamePhase !== 'lobby') {
+  if (players.size < 2 || gamePhase !== 'lobby' || !trackReady) {
     return;
   }
+
+  const track = getSelectedTrack();
 
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       type: 'broadcast',
       target: 'phones',
       event: 'gameStart',
+      mapId: lobbyConfig.mapId,
+      mapName: track.name,
+      totalRounds: lobbyConfig.totalRounds,
     }));
   }
 
   resetAllCars();
   gamePhase = 'playing';
+  setLobbySettingsEnabled(false);
   lobbyPanel.classList.add('hidden');
   resizeCanvas();
 }
@@ -300,7 +413,8 @@ function drawFrame() {
     ctx.rect(rect.x, rect.y, rect.w, rect.h);
     ctx.clip();
     ctx.setTransform(...getFollowCameraTransform(car, rect, dpr, CAMERA_VIEW_SIZE));
-    drawScene(ctx, trackImg, cars);
+    const padding = getMapGreenPadding(rect, CAMERA_VIEW_SIZE);
+    drawScene(ctx, trackImg, cars, padding);
     ctx.restore();
   }
 
@@ -337,21 +451,16 @@ function resizeCanvas() {
   drawFrame();
 }
 
-function tryStartGame() {
-  if (!trackImg.complete || !maskImg.complete) {
-    return;
-  }
-
-  trackMask = new TrackMask(maskImg);
-  trackReady = true;
-  resizeCanvas();
-}
-
+populateMapSelect();
+updateLobbyConfigSummary();
+setLobbySettingsEnabled(true);
+loadTrack(lobbyConfig.mapId);
 startBtn.addEventListener('click', startGame);
+mapSelectEl.addEventListener('change', handleMapChange);
+roundsInputEl.addEventListener('change', handleRoundsChange);
+roundsInputEl.addEventListener('input', handleRoundsChange);
 qrCanvas.addEventListener('click', openQrOverlay);
 qrOverlay.addEventListener('click', closeQrOverlay);
-trackImg.onload = tryStartGame;
-maskImg.onload = tryStartGame;
 
 window.addEventListener('resize', resizeCanvas);
 connectWebSocket();

@@ -135,6 +135,47 @@
       cursor: not-allowed;
     }
 
+    .lobby-settings {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .lobby-setting {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .lobby-setting select,
+    .lobby-setting input {
+      padding: 0.35rem 0.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      font-size: 0.85rem;
+      font-family: inherit;
+    }
+
+    .lobby-setting input {
+      width: 4rem;
+    }
+
+    .lobby-setting select:disabled,
+    .lobby-setting input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #lobby-config-summary {
+      margin: 0;
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.45);
+      white-space: nowrap;
+    }
+
     #game-wrap {
       flex: 1;
       min-height: 0;
@@ -158,6 +199,17 @@
     <div class="lobby-players">
       <p id="player-count">0 / 4 Spieler</p>
       <p id="player-list">Warte auf Spieler…</p>
+    </div>
+    <div class="lobby-settings">
+      <div class="lobby-setting">
+        <label class="lobby-label" for="map-select">Map</label>
+        <select id="map-select"></select>
+      </div>
+      <div class="lobby-setting">
+        <label class="lobby-label" for="rounds-input">Runden</label>
+        <input id="rounds-input" type="number" min="1" max="99" value="3" inputmode="numeric">
+      </div>
+      <p id="lobby-config-summary">Silverstone · 3 Runden</p>
     </div>
     <button type="button" id="start-btn" disabled>Spiel starten</button>
   </div>

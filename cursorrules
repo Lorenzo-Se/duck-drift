@@ -21,7 +21,7 @@ Der Server bietet zusätzlich eine kleine REST-API für den globalen Highscore (
 
 // Host → Server
 { "type": "createRoom" }
-{ "type": "broadcast", "target": "phones", "event": "gameStart" }
+{ "type": "broadcast", "target": "phones", "event": "gameStart", "mapId": "silverstone", "mapName": "Silverstone", "totalRounds": 3 }
 { "type": "gameOver", "winnerId": "p1", "results": [...] }
 
 // Server → Host
