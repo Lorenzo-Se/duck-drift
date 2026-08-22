@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Duck Drift – Controller</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: #1a1a2e;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+    }
+
+    #join-screen[hidden],
+    #control-screen[hidden] {
+      display: none !important;
+    }
+
+    #join-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 24px;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+
+    #join-screen h1 {
+      margin: 0 0 32px;
+      font-size: 1.75rem;
+    }
+
+    #join-form {
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    #join-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    #join-form input {
+      padding: 14px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.25rem;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      touch-action: manipulation;
+    }
+
+    #join-form input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    #room-code {
+      text-align: center;
+      letter-spacing: 0.3em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #join-btn {
+      margin-top: 8px;
+      padding: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #3498db;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: bold;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    #join-btn:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+
+    #join-error {
+      min-height: 1.25rem;
+      color: #e74c3c;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    .control-btn {
+      position: fixed;
+      bottom: 0;
+      width: 45%;
+      height: 35%;
+      min-height: 120px;
+      border: none;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #fff;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      cursor: pointer;
+    }
+
+    .control-btn.brake {
+      left: 0;
+      background: #e74c3c;
+      border-radius: 24px 24px 0 0;
+    }
+
+    .control-btn.brake.active {
+      background: #c0392b;
+    }
+
+    .control-btn.gas {
+      right: 0;
+      background: #2ecc71;
+      border-radius: 24px 24px 0 0;
+    }
+
+    .control-btn.gas.active {
+      background: #27ae60;
+    }
+
+    #enable-steering {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      background: #3498db;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: bold;
+      touch-action: manipulation;
+      cursor: pointer;
+    }
+
+    #steering-debug {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 10;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #0f0;
+      font-family: monospace;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <div id="join-screen">
+    <h1>Duck Drift</h1>
+    <form id="join-form">
+      <label>
+        Raumcode
+        <input id="room-code" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" autocomplete="off" required>
+      </label>
+      <label>
+        Name
+        <input id="player-name" type="text" maxlength="20" placeholder="Dein Name" autocomplete="nickname" required>
+      </label>
+      <p id="join-error" aria-live="polite"></p>
+      <button type="submit" id="join-btn">Beitreten</button>
+    </form>
+  </div>
+
+  <div id="control-screen" hidden>
+    <button id="enable-steering">Steuerung aktivieren</button>
+    <div id="steering-debug">steering: 0.00</div>
+    <button class="control-btn brake" id="brake">Bremse</button>
+    <button class="control-btn gas" id="gas">Gas</button>
+  </div>
+
+  <script>
+    const joinScreen = document.getElementById('join-screen');
+    const controlScreen = document.getElementById('control-screen');
+    const joinForm = document.getElementById('join-form');
+    const roomCodeInput = document.getElementById('room-code');
+    const playerNameInput = document.getElementById('player-name');
+    const joinBtn = document.getElementById('join-btn');
+    const joinError = document.getElementById('join-error');
+
+    let ws = null;
+    let joined = false;
+    let playerId = null;
+    let slot = null;
+    let inputIntervalId = null;
+
+    const state = { brake: false, gas: false, steering: 0 };
+
+    const roomFromUrl = new URLSearchParams(location.search).get('room');
+    if (roomFromUrl && /^\d{4}$/.test(roomFromUrl)) {
+      roomCodeInput.value = roomFromUrl;
+    }
+
+    function showError(message) {
+      joinError.textContent = message;
+    }
+
+    function setJoining(joining) {
+      joinBtn.disabled = joining;
+      joinBtn.textContent = joining ? 'Verbinde…' : 'Beitreten';
+      roomCodeInput.disabled = joining;
+      playerNameInput.disabled = joining;
+    }
+
+    function showControlScreen() {
+      joinScreen.hidden = true;
+      controlScreen.hidden = false;
+      initControls();
+    }
+
+    function sendInput() {
+      if (!joined || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      ws.send(JSON.stringify({
+        type: 'input',
+        target: 'host',
+        steering: Math.round(state.steering * 100) / 100,
+        throttle: state.gas,
+        brake: state.brake,
+      }));
+    }
+
+    function stopInputLoop() {
+      if (inputIntervalId !== null) {
+        clearInterval(inputIntervalId);
+        inputIntervalId = null;
+      }
+    }
+
+    function startInputLoop() {
+      if (!joined || !ws || ws.readyState !== WebSocket.OPEN || inputIntervalId !== null) return;
+      inputIntervalId = setInterval(sendInput, 50);
+    }
+
+    function handleJoinFailure(message) {
+      stopInputLoop();
+      joined = false;
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      setJoining(false);
+      showError(message);
+    }
+
+    joinForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      showError('');
+
+      const roomCode = roomCodeInput.value.trim();
+      const name = playerNameInput.value.trim();
+
+      if (!/^\d{4}$/.test(roomCode)) {
+        showError('Raumcode muss 4 Ziffern haben.');
+        return;
+      }
+      if (!name) {
+        showError('Bitte einen Namen eingeben.');
+        return;
+      }
+
+      if (ws) {
+        stopInputLoop();
+        ws.close();
+        ws = null;
+      }
+
+      setJoining(true);
+      joined = false;
+
+      const wsUrl = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'join', roomCode, name }));
+      };
+
+      ws.onmessage = (event) => {
+        let msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          handleJoinFailure('Ungültige Server-Antwort.');
+          return;
+        }
+
+        if (msg.type === 'joined') {
+          joined = true;
+          playerId = msg.playerId;
+          slot = msg.slot;
+          setJoining(false);
+          showControlScreen();
+          startInputLoop();
+        } else if (msg.type === 'error') {
+          handleJoinFailure(msg.message || 'Beitritt fehlgeschlagen.');
+        }
+      };
+
+      ws.onerror = () => {
+        if (!joined) {
+          handleJoinFailure('Verbindung fehlgeschlagen.');
+        }
+      };
+
+      ws.onclose = () => {
+        stopInputLoop();
+        if (!joined) {
+          handleJoinFailure('Verbindung getrennt.');
+        }
+      };
+    });
+
+    const MAX_TILT = 45;
+    let controlsInitialized = false;
+
+    function initControls() {
+      if (controlsInitialized) return;
+      controlsInitialized = true;
+
+      const enableBtn = document.getElementById('enable-steering');
+      const debugEl = document.getElementById('steering-debug');
+      let neutralBeta = null;
+
+      function normalizeBeta(beta) {
+        if (beta == null || neutralBeta == null) return 0;
+        const tilt = beta - neutralBeta;
+        return Math.max(-1, Math.min(1, tilt / MAX_TILT));
+      }
+
+      function handleOrientation(event) {
+        if (neutralBeta === null && event.beta != null) {
+          neutralBeta = event.beta;
+        }
+        state.steering = normalizeBeta(event.beta);
+        debugEl.textContent = `steering: ${state.steering.toFixed(2)} (β: ${event.beta?.toFixed(1) ?? '–'})`;
+      }
+
+      async function enableSteering() {
+        try {
+          if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+            const permission = await DeviceOrientationEvent.requestPermission();
+            if (permission !== 'granted') {
+              enableBtn.textContent = 'Berechtigung verweigert';
+              return;
+            }
+          }
+          neutralBeta = null;
+          window.addEventListener('deviceorientation', handleOrientation, true);
+          enableBtn.hidden = true;
+        } catch {
+          enableBtn.textContent = 'Fehler – erneut versuchen';
+        }
+      }
+
+      enableBtn.addEventListener('click', enableSteering);
+
+      function bindControl(button, key) {
+        function press(e) {
+          e.preventDefault();
+          state[key] = true;
+          button.classList.add('active');
+        }
+
+        function release() {
+          state[key] = false;
+          button.classList.remove('active');
+        }
+
+        button.addEventListener('touchstart', press, { passive: false });
+        button.addEventListener('touchend', release);
+        button.addEventListener('touchcancel', release);
+
+        button.addEventListener('pointerdown', press);
+        button.addEventListener('pointerup', release);
+        button.addEventListener('pointercancel', release);
+        button.addEventListener('pointerleave', release);
+      }
+
+      bindControl(document.getElementById('brake'), 'brake');
+      bindControl(document.getElementById('gas'), 'gas');
+    }
+  </script>
+</body>
+</html>
