@@ -64,6 +64,36 @@
       background: #fff;
       border-radius: 4px;
       flex-shrink: 0;
+      cursor: pointer;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    #qr-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.75);
+      cursor: pointer;
+    }
+
+    #qr-overlay.open {
+      display: flex;
+    }
+
+    #qr-code-large {
+      display: block;
+      width: min(80vw, 80vh);
+      height: min(80vw, 80vh);
+      background: #fff;
+      border-radius: 8px;
+      cursor: default;
+      pointer-events: none;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
     }
 
     .lobby-players {
@@ -133,6 +163,9 @@
   </div>
   <div id="game-wrap">
     <canvas id="game"></canvas>
+  </div>
+  <div id="qr-overlay" aria-hidden="true">
+    <canvas id="qr-code-large" width="400" height="400" aria-label="QR-Code zum Beitreten (vergrößert)"></canvas>
   </div>
   <script type="module" src="js/main.js"></script>
 </body>

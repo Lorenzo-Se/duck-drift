@@ -16,6 +16,8 @@ const dpr = window.devicePixelRatio || 1;
 const lobbyPanel = document.getElementById('lobby-panel');
 const roomCodeEl = document.getElementById('room-code');
 const qrCanvas = document.getElementById('qr-code');
+const qrOverlay = document.getElementById('qr-overlay');
+const qrCanvasLarge = document.getElementById('qr-code-large');
 const playerListEl = document.getElementById('player-list');
 const playerCountEl = document.getElementById('player-count');
 const startBtn = document.getElementById('start-btn');
@@ -153,13 +155,40 @@ function startGame() {
   resizeCanvas();
 }
 
+function getJoinUrl() {
+  const joinUrl = new URL('/', location.origin);
+  joinUrl.searchParams.set('room', roomCode);
+  return joinUrl.toString();
+}
+
 function renderQrCode() {
   if (!roomCode) {
     return;
   }
-  const joinUrl = new URL('/', location.origin);
-  joinUrl.searchParams.set('room', roomCode);
-  drawQrCode(qrCanvas, joinUrl.toString());
+  const url = getJoinUrl();
+  drawQrCode(qrCanvas, url);
+}
+
+function renderLargeQrCode() {
+  if (!roomCode) {
+    return;
+  }
+  const size = Math.min(window.innerWidth, window.innerHeight) * 0.8;
+  drawQrCode(qrCanvasLarge, getJoinUrl(), size);
+}
+
+function openQrOverlay() {
+  if (!roomCode) {
+    return;
+  }
+  qrOverlay.classList.add('open');
+  qrOverlay.setAttribute('aria-hidden', 'false');
+  renderLargeQrCode();
+}
+
+function closeQrOverlay() {
+  qrOverlay.classList.remove('open');
+  qrOverlay.setAttribute('aria-hidden', 'true');
 }
 
 function handleServerMessage(msg) {
@@ -319,6 +348,8 @@ function tryStartGame() {
 }
 
 startBtn.addEventListener('click', startGame);
+qrCanvas.addEventListener('click', openQrOverlay);
+qrOverlay.addEventListener('click', closeQrOverlay);
 trackImg.onload = tryStartGame;
 maskImg.onload = tryStartGame;
 
