@@ -1,6 +1,13 @@
 import { Car } from './Car.js';
 import { resolveCarCollisions } from './CarCollisions.js';
 import { TrackMask } from './TrackMask.js';
+import {
+  CAMERA_VIEW_SIZE,
+  drawScene,
+  drawViewportDividers,
+  getFollowCameraTransform,
+  getViewportRects,
+} from './viewports.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -120,15 +127,6 @@ function connectWebSocket() {
   };
 }
 
-function getTrackTransform(cw, ch, img) {
-  const scale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight);
-  const dw = img.naturalWidth * scale;
-  const dh = img.naturalHeight * scale;
-  const dx = (cw - dw) / 2;
-  const dy = (ch - dh) / 2;
-  return { scale, dx, dy };
-}
-
 function drawFrame() {
   if (!trackReady) {
     return;
@@ -136,15 +134,34 @@ function drawFrame() {
 
   const cw = window.innerWidth;
   const ch = window.innerHeight;
-  const { scale, dx, dy } = getTrackTransform(cw, ch, trackImg);
+  const activePlayers = [...players.values()].sort((a, b) => a.slot - b.slot);
+  const count = activePlayers.length;
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, cw, ch);
 
-  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * dx, dpr * dy);
-  ctx.drawImage(trackImg, 0, 0);
-  for (const car of cars) {
-    car.draw(ctx);
+  if (count === 0) {
+    return;
+  }
+
+  const rects = getViewportRects(count, cw, ch);
+
+  for (let i = 0; i < activePlayers.length; i++) {
+    const player = activePlayers[i];
+    const rect = rects[i];
+    const { car } = player;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(rect.x, rect.y, rect.w, rect.h);
+    ctx.clip();
+    ctx.setTransform(...getFollowCameraTransform(car, rect, dpr, CAMERA_VIEW_SIZE));
+    drawScene(ctx, trackImg, cars);
+    ctx.restore();
+  }
+
+  if (count > 1) {
+    drawViewportDividers(ctx, rects, dpr);
   }
 }
 
