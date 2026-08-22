@@ -1,10 +1,10 @@
 ---
 description: Regeln für den Handy-Controller-Client (Neigungssensor, Touch-Buttons, Join-Flow)
-globs: public/controller/**/*.js,public/controller/**/*.html
+globs: server/public/controller/**/*.js,server/public/controller/**/*.html
 alwaysApply: false
 ---
 
-Du arbeitest am Handy-Controller (`public/controller/`). Mobile-first, läuft im Handy-Browser:
+Du arbeitest am Handy-Controller (`server/public/controller/`). Mobile-first, läuft im Handy-Browser:
 
 - HTML mit `<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">` und `touch-action: none` auf den Steuerelementen, damit kein Scrollen/Zoomen die Steuerung stört.
 - Lenkung über `DeviceOrientationEvent` (gamma-Wert, normalisiert auf -1 bis 1). iOS 13+ braucht einen expliziten Button-Klick, der `DeviceOrientationEvent.requestPermission()` aufruft – das immer einbauen, sonst funktioniert es auf iPhones nicht.

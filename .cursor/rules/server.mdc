@@ -7,8 +7,8 @@ alwaysApply: false
 Du arbeitest am Server (`server/`). Dieser Code ist bewusst simpel und generisch:
 
 - Der Server kennt KEINE Spielregeln (keine Physik, keine Rennlogik, keine Hot-Potato-Logik). Er verwaltet nur Rooms (Host + bis zu 4 Controller) und leitet Nachrichten gemäss dem im Root `.cursorrules` definierten Protokoll weiter.
-- Verwende Express für HTTP + statisches Ausliefern von `public/host` unter `/host` und `public/controller` unter `/controller`, sowie die `ws`-Bibliothek für WebSockets auf demselben HTTP-Server/Port.
+- Verwende Express für HTTP + statisches Ausliefern von `server/public/host` unter `/host` und `server/public/controller` unter `/controller`, sowie die `ws`-Bibliothek für WebSockets auf demselben HTTP-Server/Port.
 - Rooms als einfache In-Memory-Map halten (`Map<roomCode, {host, phones: Map<playerId, ws>}>`) – keine Datenbank für Rooms, nur für Highscores.
 - Highscore-Persistenz: erst simpel (JSON-Datei oder SQLite), erst am Schluss ggf. auf Deploio Managed DB/KV umstellen.
-- Jede neue Route/jeder neue Nachrichtentyp muss mit dem Protokoll in `.cursorrules` übereinstimmen. Wenn du das Protokoll erweiterst, weise darauf hin, dass `public/host` und `public/controller` entsprechend angepasst werden müssen.
+- Jede neue Route/jeder neue Nachrichtentyp muss mit dem Protokoll in `.cursorrules` übereinstimmen. Wenn du das Protokoll erweiterst, weise darauf hin, dass `server/public/host` und `server/public/controller` entsprechend angepasst werden müssen.
 - Nach jeder Änderung: gib einen `wscat`- oder `curl`-Testbefehl an, mit dem man die Änderung sofort isoliert verifizieren kann, ohne dass Host/Controller-Client bereit sein müssen.

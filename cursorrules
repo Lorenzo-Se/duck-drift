@@ -5,12 +5,12 @@ Dies ist ein Game-Jam-Projekt mit 5h Entwicklungszeit. Ziel: schnell funktionier
 ## Architektur (nicht verändern ohne Rücksprache im Team)
 
 Ein Node.js-Server (`server/`) ist ein **generischer, "dummer" Relay**: Er kennt keine Spiellogik, sondern leitet WebSocket-Nachrichten zwischen zwei Client-Typen weiter:
-- **Host** (`public/host/`) = der eine Hauptbildschirm, auf dem das eigentliche Spiel läuft (Rendering, Physik, Kollision, Split-Screen, alle Spielregeln)
-- **Controller** (`public/controller/`) = die Handys der Spieler:innen (nur Input: Neigungssensor für Lenkung, Touch-Buttons für Gas/Bremse)
+- **Host** (`server/public/host/`) = der eine Hauptbildschirm, auf dem das eigentliche Spiel läuft (Rendering, Physik, Kollision, Split-Screen, alle Spielregeln)
+- **Controller** (`server/public/controller/`) = die Handys der Spieler:innen (nur Input: Neigungssensor für Lenkung, Touch-Buttons für Gas/Bremse)
 
 Der Server bietet zusätzlich eine kleine REST-API für den globalen Highscore (`GET/POST /api/highscores`).
 
-**Wichtige Regel:** Fast die gesamte Spiellogik gehört in `public/host/`, NICHT in den Server. Der Server soll so generisch bleiben, dass neue Spiel-Features (z.B. Hot-Potato-Modus) idealerweise ohne Server-Änderungen auskommen (generischer `broadcast`-Nachrichtentyp).
+**Wichtige Regel:** Fast die gesamte Spiellogik gehört in `server/public/host/`, NICHT in den Server. Der Server soll so generisch bleiben, dass neue Spiel-Features (z.B. Hot-Potato-Modus) idealerweise ohne Server-Änderungen auskommen (generischer `broadcast`-Nachrichtentyp).
 
 ## Nachrichtenprotokoll (WebSocket, immer JSON mit `type`-Feld)
 
@@ -38,9 +38,9 @@ Wenn du dieses Format änderst, ändere es konsistent an ALLEN drei Stellen (ser
 
 ## Ordner-Eigentümerschaft (nicht fremd editieren, um Merge-Konflikte zu vermeiden)
 
-- `server/**` → Server-Entwickler:in
-- `public/host/**` → Hauptbildschirm/Spiel-Entwickler:in
-- `public/controller/**` → Controller-Entwickler:in
+- `server/*.js`, `server/data/**` → Server-Entwickler:in
+- `server/public/host/**` → Hauptbildschirm/Spiel-Entwickler:in
+- `server/public/controller/**` → Controller-Entwickler:in
 - Root-Dateien (`Dockerfile`, `README.md`, `package.json` im Root falls vorhanden) → Deploy/Doku-Person
 
 ## Allgemeine Coding-Konventionen

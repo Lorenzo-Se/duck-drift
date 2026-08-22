@@ -1,10 +1,10 @@
 ---
 description: Regeln für den Hauptbildschirm-Client (Rendering, Physik, Kollision, Split-Screen, Spiellogik)
-globs: public/host/**/*.js,public/host/**/*.html
+globs: server/public/host/**/*.js,server/public/host/**/*.html
 alwaysApply: false
 ---
 
-Du arbeitest am Hauptbildschirm-Client (`public/host/`). Das ist der wichtigste Teil des Spiels – hier lebt fast die gesamte Logik:
+Du arbeitest am Hauptbildschirm-Client (`server/public/host/`). Das ist der wichtigste Teil des Spiels – hier lebt fast die gesamte Logik:
 
 - Rendering via `<canvas>` + 2D-Context, kein Spiele-Framework nötig (Zeit sparen), ausser explizit gewünscht.
 - Auto-Physik soll "drifty" sein: seitliche Geschwindigkeit wird nur langsam abgebaut (nicht sofort auf 0), nicht wie ein simples Top-Down-Auto mit perfekter Haftung.

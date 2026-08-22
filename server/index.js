@@ -12,8 +12,8 @@ if (!PORT) {
 
 const app = express();
 app.use(express.json());
-app.use('/host', express.static(path.join(__dirname, '../public/host')));
-app.use('/controller', express.static(path.join(__dirname, '../public/controller')));
+app.use('/host', express.static(path.join(__dirname, 'public/host')));
+app.use('/controller', express.static(path.join(__dirname, 'public/controller')));
 app.get('/', (_req, res) => res.redirect('/controller/'));
 
 const rooms = new Map();
