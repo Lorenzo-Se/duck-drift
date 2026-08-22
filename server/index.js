@@ -181,20 +181,30 @@ function handleDisconnect(ws) {
   }
 }
 
-app.get('/api/highscores', (_req, res) => {
-  res.json(highscores.getTop10());
+app.get('/api/highscores', async (_req, res) => {
+  try {
+    res.json(await highscores.getTop10());
+  } catch (err) {
+    console.error('GET /api/highscores failed:', err);
+    res.status(503).json({ error: 'Highscores unavailable' });
+  }
 });
 
-app.post('/api/highscores', (req, res) => {
+app.post('/api/highscores', async (req, res) => {
   const { playerName, won } = req.body;
 
   if (!playerName || won !== true) {
     return res.status(400).json({ error: 'playerName and won: true required' });
   }
 
-  const wins = highscores.recordWin(playerName);
-  console.log(`Highscore updated: ${playerName} -> ${wins} wins`);
-  res.json({ ok: true });
+  try {
+    const wins = await highscores.recordWin(playerName);
+    console.log(`Highscore updated: ${playerName} -> ${wins} wins`);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('POST /api/highscores failed:', err);
+    res.status(503).json({ error: 'Highscores unavailable' });
+  }
 });
 
 const server = http.createServer(app);
@@ -221,8 +231,11 @@ wss.on('connection', (ws) => {
   });
 });
 
-highscores.loadHighscores();
-
-server.listen(PORT, () => {
-  console.log(`Listening on port ${PORT}`);
+highscores.connect().then(() => {
+  server.listen(PORT, () => {
+    console.log(`Listening on port ${PORT}`);
+  });
+}).catch((err) => {
+  console.error('Failed to connect to Redis:', err);
+  process.exit(1);
 });

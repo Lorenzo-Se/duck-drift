@@ -1,40 +1,61 @@
-const fs = require('fs');
-const path = require('path');
+const { createClient } = require('redis');
 
-const dataDir = path.join(__dirname, 'data');
-const dataFile = path.join(dataDir, 'highscores.json');
+const KEY = 'highscores';
 
-let scores = {};
+let client = null;
+let memoryScores = {};
 
-function save() {
-  fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(dataFile, JSON.stringify(scores, null, 2));
+function useRedis() {
+  return Boolean(process.env.REDIS_URL);
 }
 
-function loadHighscores() {
-  try {
-    if (fs.existsSync(dataFile)) {
-      scores = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
-    } else {
-      scores = {};
-    }
-  } catch (err) {
-    console.warn('Could not load highscores, starting fresh:', err.message);
-    scores = {};
+async function connect() {
+  if (!useRedis()) {
+    console.warn('REDIS_URL not set — using in-memory highscore storage');
+    return;
   }
+
+  client = createClient({
+    url: process.env.REDIS_URL,
+    socket: process.env.REDIS_URL.startsWith('rediss://')
+      ? { tls: true, rejectUnauthorized: false }
+      : undefined,
+  });
+
+  client.on('error', (err) => {
+    console.error('Redis error:', err.message);
+  });
+
+  await client.connect();
+  console.log('Connected to Redis for highscores');
 }
 
-function getTop10() {
-  return Object.entries(scores)
+function getTop10FromMemory() {
+  return Object.entries(memoryScores)
     .map(([playerName, wins]) => ({ playerName, wins }))
     .sort((a, b) => b.wins - a.wins)
     .slice(0, 10);
 }
 
-function recordWin(playerName) {
-  scores[playerName] = (scores[playerName] || 0) + 1;
-  save();
-  return scores[playerName];
+async function getTop10() {
+  if (!useRedis()) {
+    return getTop10FromMemory();
+  }
+
+  const entries = await client.zRangeWithScores(KEY, 0, 9, { REV: true });
+  return entries.map(({ value, score }) => ({
+    playerName: value,
+    wins: score,
+  }));
 }
 
-module.exports = { loadHighscores, getTop10, recordWin };
+async function recordWin(playerName) {
+  if (!useRedis()) {
+    memoryScores[playerName] = (memoryScores[playerName] || 0) + 1;
+    return memoryScores[playerName];
+  }
+
+  return client.zIncrBy(KEY, 1, playerName);
+}
+
+module.exports = { connect, getTop10, recordWin };
