@@ -210,6 +210,9 @@
     let joined = false;
     let playerId = null;
     let slot = null;
+    let inputIntervalId = null;
+
+    const state = { brake: false, gas: false, steering: 0 };
 
     const roomFromUrl = new URLSearchParams(location.search).get('room');
     if (roomFromUrl && /^\d{4}$/.test(roomFromUrl)) {
@@ -233,7 +236,32 @@
       initControls();
     }
 
+    function sendInput() {
+      if (!joined || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      ws.send(JSON.stringify({
+        type: 'input',
+        target: 'host',
+        steering: Math.round(state.steering * 100) / 100,
+        throttle: state.gas,
+        brake: state.brake,
+      }));
+    }
+
+    function stopInputLoop() {
+      if (inputIntervalId !== null) {
+        clearInterval(inputIntervalId);
+        inputIntervalId = null;
+      }
+    }
+
+    function startInputLoop() {
+      if (!joined || !ws || ws.readyState !== WebSocket.OPEN || inputIntervalId !== null) return;
+      inputIntervalId = setInterval(sendInput, 50);
+    }
+
     function handleJoinFailure(message) {
+      stopInputLoop();
       joined = false;
       if (ws) {
         ws.close();
@@ -260,6 +288,7 @@
       }
 
       if (ws) {
+        stopInputLoop();
         ws.close();
         ws = null;
       }
@@ -289,6 +318,7 @@
           slot = msg.slot;
           setJoining(false);
           showControlScreen();
+          startInputLoop();
         } else if (msg.type === 'error') {
           handleJoinFailure(msg.message || 'Beitritt fehlgeschlagen.');
         }
@@ -301,13 +331,13 @@
       };
 
       ws.onclose = () => {
+        stopInputLoop();
         if (!joined) {
           handleJoinFailure('Verbindung getrennt.');
         }
       };
     });
 
-    const state = { brake: false, gas: false, steering: 0 };
     const MAX_TILT = 45;
     let controlsInitialized = false;
 
