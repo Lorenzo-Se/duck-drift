@@ -31,6 +31,7 @@
       height: 100%;
       padding: 24px;
       box-sizing: border-box;
+      overflow-y: auto;
     }
 
     #start-screen h1 {
@@ -38,9 +39,27 @@
       font-size: 1.75rem;
     }
 
+    .start-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2rem;
+      width: 100%;
+      max-width: 720px;
+    }
+
+    @media (min-width: 640px) {
+      .start-content {
+        flex-direction: row;
+        align-items: flex-start;
+        justify-content: center;
+      }
+    }
+
     #join-form {
       width: 100%;
       max-width: 320px;
+      flex: 1;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -110,24 +129,99 @@
       font-size: 0.9rem;
       text-align: center;
     }
+
+    #highscores-section {
+      width: 100%;
+      max-width: 320px;
+      flex: 1;
+    }
+
+    #highscores-title {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    #highscores-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    #highscores-table th,
+    #highscores-table td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #highscores-table th {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    #highscores-table td:first-child,
+    #highscores-table th:first-child {
+      width: 2rem;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #highscores-table td:last-child,
+    #highscores-table th:last-child {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #highscores-table tbody tr.top-3 td:first-child {
+      color: #f1c40f;
+      font-weight: 700;
+    }
+
+    #highscores-table .status-row td {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.55);
+      border-bottom: none;
+    }
   </style>
 </head>
 <body>
   <div id="start-screen">
     <h1>Duck Drift</h1>
-    <form id="join-form">
-      <label>
-        Lobby-Code
-        <input id="room-code" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" autocomplete="off" required>
-      </label>
-      <label>
-        Name
-        <input id="player-name" type="text" maxlength="20" placeholder="Dein Name" autocomplete="nickname" required>
-      </label>
-      <p id="join-error" aria-live="polite"></p>
-      <button type="submit" id="join-btn">Beitreten</button>
-      <button type="button" id="create-btn">Lobby erstellen</button>
-    </form>
+    <div class="start-content">
+      <form id="join-form">
+        <label>
+          Lobby-Code
+          <input id="room-code" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" autocomplete="off" required>
+        </label>
+        <label>
+          Name
+          <input id="player-name" type="text" maxlength="20" placeholder="Dein Name" autocomplete="nickname" required>
+        </label>
+        <p id="join-error" aria-live="polite"></p>
+        <button type="submit" id="join-btn">Beitreten</button>
+        <button type="button" id="create-btn">Lobby erstellen</button>
+      </form>
+      <section id="highscores-section" aria-labelledby="highscores-title">
+        <h2 id="highscores-title">Most Wins</h2>
+        <table id="highscores-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Player</th>
+              <th>Wins</th>
+            </tr>
+          </thead>
+          <tbody id="highscores-body"></tbody>
+        </table>
+      </section>
+    </div>
   </div>
 
   <script>
@@ -136,6 +230,39 @@
     const playerNameInput = document.getElementById('player-name');
     const joinError = document.getElementById('join-error');
     const createBtn = document.getElementById('create-btn');
+    const highscoresBody = document.getElementById('highscores-body');
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    async function loadHighscores() {
+      highscoresBody.innerHTML = '<tr class="status-row"><td colspan="3">Laden…</td></tr>';
+
+      try {
+        const res = await fetch('/api/highscores');
+        if (!res.ok) {
+          throw new Error(res.status);
+        }
+
+        const scores = await res.json();
+
+        if (!scores.length) {
+          highscoresBody.innerHTML = '<tr class="status-row"><td colspan="3">Noch keine Siege.</td></tr>';
+          return;
+        }
+
+        highscoresBody.innerHTML = scores.map((entry, i) => {
+          const rank = i + 1;
+          const rowClass = rank <= 3 ? ' class="top-3"' : '';
+          return `<tr${rowClass}><td>${rank}</td><td>${escapeHtml(entry.playerName)}</td><td>${entry.wins}</td></tr>`;
+        }).join('');
+      } catch {
+        highscoresBody.innerHTML = '<tr class="status-row"><td colspan="3">Highscores nicht verfügbar.</td></tr>';
+      }
+    }
 
     const params = new URLSearchParams(location.search);
     const roomFromUrl = params.get('room');
@@ -174,6 +301,8 @@
     createBtn.addEventListener('click', () => {
       location.href = '/host/';
     });
+
+    loadHighscores();
   </script>
 </body>
 </html>
